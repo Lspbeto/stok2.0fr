@@ -1,21 +1,43 @@
 // Interface do STOK: estoque, entregas, usuários, histórico e relatórios.
 const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
-let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [];
+let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
-  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(options.headers||{})}});
+  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok) throw new Error(data.message||"Não foi possível concluir a operação.");
   return data;
 }
-function showLoggedIn(user) {
-  currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
-  $("welcome").textContent="Olá, "+user.name+" ("+user.role+")"; $("usersTab").hidden=user.role!=="admin"; $("databaseTab").hidden=user.role!=="admin"; $("databaseTools").hidden=true;
-  loadProducts();
-  if(user.role==="operador") $("deliveryForm").hidden=true;
+function showPending(user) {
+  currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
+  $("pendingMessage").textContent="Olá, "+user.name+". Sua solicitação para a empresa selecionada está aguardando aprovação. Você não pode acessar o estoque, entregas ou relatórios enquanto não for aprovado.";
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);showLoggedIn(d.user);message("Login realizado.");}catch(err){message(err.message,true);}});
+async function refreshPendingStatus(){
+ try{const user=await api("/auth/me");if(user.approvalStatus==="approved"){ $("pendingScreen").hidden=true; showLoggedIn(user); message("Acesso aprovado. Bem-vindo ao STOK.");}else if(user.approvalStatus==="rejected"){$("pendingMessage").textContent="Sua solicitação foi recusada. Entre em contato com o administrador da empresa."; }else{$("pendingMessage").textContent="Sua solicitação continua aguardando aprovação do administrador.";}}
+ catch(err){$("pendingMessage").textContent=err.message;}
+}
+function showLoggedIn(user) {
+  currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
+  const isSuperAdmin=user.role==="superadmin";
+  const isAdmin=["admin","superadmin"].includes(user.role);
+  $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
+  $("usersTab").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  $("sectorsTab").hidden=!isAdmin;
+  $("deliveryForm").hidden=user.role!=="admin";
+  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+  if(isSuperAdmin){
+    // O administrador geral precisa escolher a empresa antes de consultar dados.
+    $("globalCompanySelect")?.closest("label")?.remove();
+    loadGlobalCompanySelector();
+  }else{
+    selectedCompanyId="";
+    localStorage.removeItem("stok_company_id");
+    loadSectors();
+    loadProducts();
+  }
+}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
 $("backToLogin").addEventListener("click",()=>{$("registerScreen").hidden=true;$("login").hidden=false;});
@@ -25,16 +47,77 @@ $("forgotForm").addEventListener("submit",async e=>{e.preventDefault();try{const
 let resetToken=new URLSearchParams(window.location.search).get("reset");
 if(resetToken){token=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("login").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=false;}
 $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/reset-password",{method:"POST",body:JSON.stringify({token:resetToken,password:$("resetPassword").value})});message(d.message);window.history.replaceState({},"",window.location.pathname);$("resetScreen").hidden=true;$("login").hidden=false;resetToken=null;e.target.reset();}catch(err){message(err.message,true);}});
-$("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value})});token=d.token;localStorage.setItem("stok_token",token);showLoggedIn(d.user);e.target.reset();message("Conta de operador criada. Setor: "+d.user.sector);}catch(err){message(err.message,true);}});
+$("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
+  const companyRequired=["products","deliveries","history","sectors","databaseTools"].includes(b.dataset.tab);
+  if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
+    message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
+    return;
+  }
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
+  if(b.dataset.tab==="sectors")loadSectors();
+  if(b.dataset.tab==="chat")loadChatMessages();
+  if(b.dataset.tab==="approvals")loadPendingUsers();
 }));
+// O administrador geral escolhe a empresa cujos dados deseja administrar.
+async function loadGlobalCompanySelector(){
+ try{
+  const previousSelection=selectedCompanyId;selectedCompanyId="";
+  const companies=await api("/companies");
+  let userCompany=$("userCompany");
+  if(!userCompany){userCompany=document.createElement("select");userCompany.id="userCompany";userCompany.required=true;const label=document.createElement("label");label.id="userCompanyLabel";label.textContent="Empresa do novo usuário: ";label.appendChild(userCompany);$("userForm").insertBefore(label,$("userRole"));}
+  userCompany.replaceChildren();const userBlank=document.createElement("option");userBlank.value="";userBlank.textContent="Selecione a empresa";userCompany.appendChild(userBlank);
+  companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;userCompany.appendChild(o);});
+  $("userCompanyLabel").hidden=currentUser?.role!=="superadmin";
+  let select=$("globalCompanySelect");
+  if(!select){
+   select=document.createElement("select");select.id="globalCompanySelect";select.setAttribute("aria-label","Empresa em administração");
+   const label=document.createElement("label");label.id="globalCompanyLabel";label.className="global-company-label";label.textContent="ADMINISTRAÇÃO GERAL — Empresa em administração: ";label.appendChild(select);
+   $("welcome").after(label);
+   select.addEventListener("change",()=>{
+    selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
+    if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados.",true);return;}
+    loadSectors();loadProducts();loadHistory();loadDeliveries();
+   });
+  }
+  select.replaceChildren();
+  const empty=document.createElement("option");empty.value="";empty.textContent="Selecione uma empresa";select.appendChild(empty);
+  companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;select.appendChild(o);});
+  if(companies.some(c=>c._id===previousSelection&&c.active!==false)){selectedCompanyId=previousSelection;select.value=selectedCompanyId;}
+  else {selectedCompanyId="";localStorage.removeItem("stok_company_id");select.value="";}
+  if(!selectedCompanyId)message("Administrador geral: selecione uma empresa antes de abrir estoque, setores ou relatórios.");
+ }catch(err){message(err.message,true);}
+}
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
+
+// Carrega setores oficiais e preenche os campos de seleção da interface.
+async function loadSectors(){
+ try{
+  cachedSectors=await api("/sectors");
+  const selects=["productSector","assetSector","deliverySector","userSector"];
+  selects.forEach(id=>{
+   const el=$(id);if(!el)return;
+   const previous=el.value;el.replaceChildren();
+   const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
+   cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
+   if(cachedSectors.some(s=>s.name===previous))el.value=previous;
+   else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
+   else if(id==="productSector"||id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+  });
+  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const p=document.createElement("p");p.textContent=s.name+" — ativo";list.appendChild(p);});}
+ }catch(err){message(err.message,true);}
+}
+$("sectorForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ try{await api("/sectors",{method:"POST",body:JSON.stringify({name:$("sectorName").value})});$("sectorName").value="";await loadSectors();message("Setor criado e disponível nos cadastros.");}
+ catch(err){message(err.message,true);}
+});
+
 function toggleProductFields(){
  const asset=$("productCategory").value==="BEM";
  $("goodsFields").hidden=asset;$("assetFields").hidden=!asset;
@@ -43,7 +126,8 @@ function toggleProductFields(){
  $("unit").required=!asset;
  $("expiryDate").required=false;
  $("patrimonyCode").required=asset;
- $("responsibleSector").required=asset;
+ $("assetSector").required=asset;
+ $("productSector").required=!asset;
 }
 $("productCategory").addEventListener("change",toggleProductFields);
 toggleProductFields();
@@ -61,7 +145,7 @@ $("productForm").addEventListener("submit",async e=>{e.preventDefault();try{
   description:asset?"":$("description").value.trim(),
   patrimonyCode:asset?$("patrimonyCode").value.trim():"",
   condition:asset?$("condition").value.trim():"",
-  responsibleSector:asset?$("responsibleSector").value.trim():$("goodsSector").value.trim()
+  responsibleSector:asset?$("assetSector").value:$("productSector").value, sector:asset?$("assetSector").value:$("productSector").value
  };
  await api("/products",{method:"POST",body:JSON.stringify(payload)});
  e.target.reset();$("quantity").value=0;$("assetQuantity").value=1;toggleProductFields();await loadProducts();message("Item cadastrado.");
@@ -106,16 +190,16 @@ async function loadProducts(){try{
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}
-async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reason=prompt("Motivo / observação (opcional):")||"";try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
+async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reasonType=type==="SAIDA"?(prompt("Justificativa: AVARIA, VENDA, CONSUMO, DOACAO ou OUTRO","CONSUMO")||"").toUpperCase():"";const reason=prompt("Descreva a justificativa da movimentação:")||"";if(type==="SAIDA"&&!reason.trim()){message("A justificativa é obrigatória para registrar uma saída.",true);return;}try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason,reasonType})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
 function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set("from",$("fromDate").value);if($("toDate").value)p.set("to",$("toDate").value);return p.toString();}
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
 async function loadHistory(){try{cachedMovements=await api("/movements?"+dateParams());renderHistory();}catch(err){message(err.message,true);}}
 function renderHistory(){
  const term=($("historySearch").value||"").trim().toLocaleLowerCase("pt-BR");
- const rows=cachedMovements.filter(m=>[m.userName,m.role,m.action,m.productName,m.details,m.sector,m.destination].join(" ").toLocaleLowerCase("pt-BR").includes(term));
+ const rows=cachedMovements.filter(m=>[m.userName,m.role,m.action,m.productName,m.details,m.sector,m.createdSector,m.sourceSector,m.destinationSector,m.destination].join(" ").toLocaleLowerCase("pt-BR").includes(term));
  $("historyBody").replaceChildren();
- rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,m.role,m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("historyBody").appendChild(tr);});
+ rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,m.role,m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.createdSector||"—",m.actionSector||m.sector||"—",m.sourceSector||"—",m.destinationSector||m.destination||"—",m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("historyBody").appendChild(tr);});
 }
 $("printHistory").addEventListener("click",()=>window.print());
 $("emailForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/movements/email-report",{method:"POST",body:JSON.stringify({email:$("reportEmail").value,from:$("fromDate").value,to:$("toDate").value})});message(d.message);}catch(err){message(err.message,true);}});
@@ -124,22 +208,33 @@ async function loadDeliveries(){
  try{
   const [items,products]=await Promise.all([api("/deliveries"),api("/products")]);
   const select=$("deliveryProduct");select.replaceChildren();
-  products.filter(p=>p.category!=="BEM").forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");
+  function updateDeliveryQuantity(){
+   const selected=products.find(p=>p._id===deliveryProduct.value),asset=selected?.category==="BEM";
+   deliveryQuantity.max=asset?"1":String(selected?.quantity??"");deliveryQuantity.step=asset?"1":"0.001";deliveryQuantity.min=asset?"1":"0.001";
+   deliveryQuantity.value=asset?"1":"";deliveryQuantity.readOnly=asset;
+   deliveryQuantity.title=asset?"Bem permanente é controlado individualmente (1 unidade).":"";
+  }
+  deliveryProduct.onchange=updateDeliveryQuantity;updateDeliveryQuantity();
   $("deliveryForm").hidden=currentUser.role!=="admin";
   $("deliveryList").replaceChildren();
   items.forEach(d=>{
    const card=document.createElement("article");card.className="panel";
    const title=document.createElement("h3");title.textContent=d.productName+" — "+d.sector;card.appendChild(title);
-   const summary=document.createElement("p");summary.textContent="Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
-   (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" — "+e.quantity+" "+e.unit+" — "+(e.details||"");card.appendChild(p);});
+   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent="Cadastrado originalmente em: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor para onde foi enviado: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
+   (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" | Ação realizada no setor: "+(e.actionSector||e.sector||d.sector)+" | Origem: "+(e.sourceSector||d.sector)+" | Setor de destino/ocorrência: "+(e.destinationSector||d.sector)+" | "+e.quantity+" "+e.unit+" | "+(e.details||"");card.appendChild(p);});
    if(!d.closed){
     const form=document.createElement("form");form.className="form-grid";
-    const type=document.createElement("select");["DEVOLUCAO","CONSUMO","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;type.appendChild(o);});
-    const qty=document.createElement("input");qty.type="number";qty.min="0.001";qty.step="0.001";qty.placeholder="Quantidade";qty.required=true;
-    const note=document.createElement("input");note.placeholder="Justificativa / observação";
-    const target=document.createElement("input");target.placeholder="Setor de destino (transferência)";
+    const isAsset=d.category==="BEM";
+    const type=document.createElement("select");(isAsset?["DEVOLUCAO","TRANSFERENCIA","AVARIA","EXTRAVIO","DOACAO","VENDA","OUTRO"]:["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"]).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
+    const qty=document.createElement("input");qty.type="number";qty.min=isAsset?"1":"0.001";qty.max=String(Number(d.quantity)-Number(d.accounted||0));qty.step=isAsset?"1":"0.001";qty.value=isAsset?"1":"";qty.placeholder="Quantidade";qty.required=true;qty.readOnly=isAsset;
+    const note=document.createElement("input");note.placeholder="Justificativa / observação (obrigatória para avaria, venda, extravio etc.)";note.required=["AVARIA","EXTRAVIO","DOACAO","VENDA","OUTRO"].includes(type.value);
+    const target=document.createElement("select");const targetBlank=document.createElement("option");targetBlank.value="";targetBlank.textContent="Setor de destino (transferência)";target.appendChild(targetBlank);cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;target.appendChild(o);});
+    const updateDestinationFields=()=>{target.hidden=type.value!=="TRANSFERENCIA";target.required=type.value==="TRANSFERENCIA";};
+    type.addEventListener("change",()=>{updateDestinationFields();note.required=["AVARIA","EXTRAVIO","DOACAO","VENDA","OUTRO"].includes(type.value);});updateDestinationFields();
     const add=document.createElement("button");add.textContent="Registrar destino";
-    form.append(type,qty,note,target,add);
+    const actionInfo=document.createElement("small");actionInfo.textContent="Ação será registrada em nome de "+currentUser.name+" no setor "+(currentUser.sector||d.sector)+". O setor de origem e o setor de destino/ocorrência também ficarão no histórico.";const currentInfo=document.createElement("small");currentInfo.textContent=isAsset?"Setor responsável atualmente registrado: "+(d.currentSector||"Não informado")+". Em caso de extravio, será mostrado como não localizado, mantendo o setor da ocorrência no histórico.":"Setor de destino da entrega: "+(d.destinationSector||d.sector)+". O setor atual do item também fica no cadastro.";form.append(type,qty,note,target,actionInfo,currentInfo,add);
     form.addEventListener("submit",async ev=>{ev.preventDefault();try{await api("/deliveries/"+d._id+"/account",{method:"POST",body:JSON.stringify({type:type.value,quantity:Number(qty.value),note:note.value,targetSector:target.value})});message("Destino registrado no histórico.");loadDeliveries();}catch(err){message(err.message,true);}});
     card.appendChild(form);
     const close=document.createElement("button");close.textContent="Concluir prestação de contas";close.addEventListener("click",async()=>{try{await api("/deliveries/"+d._id+"/close",{method:"POST"});message("Prestação concluída.");loadDeliveries();}catch(err){message(err.message,true);}});card.appendChild(close);
@@ -148,12 +243,21 @@ async function loadDeliveries(){
   });
  }catch(err){message(err.message,true);}
 }
-$("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/deliveries",{method:"POST",body:JSON.stringify({productId:$("deliveryProduct").value,quantity:Number($("deliveryQuantity").value),sector:$("deliverySector").value})});e.target.reset();message("Entrega registrada e estoque baixado.");loadProducts();loadDeliveries();}catch(err){message(err.message,true);}});
+$("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{
+ const selectedLabel=$("deliveryProduct").selectedOptions[0]?.textContent||"";
+ const isAsset=selectedLabel.startsWith("[BEM PERMANENTE]");
+ await api("/deliveries",{method:"POST",body:JSON.stringify({productId:$("deliveryProduct").value,quantity:Number($("deliveryQuantity").value),sector:$("deliverySector").value})});
+ e.target.reset();
+ message(isAsset?"Bem atribuído ao setor e histórico atualizado.":"Entrega registrada e estoque baixado.");
+ loadProducts();loadDeliveries();
+}catch(err){message(err.message,true);}});
 
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{
  try{
-  const response=await fetch(API+"/database/backup",{headers:{Authorization:"Bearer "+token}});
+  const backupQuery=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  if(currentUser?.role==="superadmin"&&!selectedCompanyId)throw new Error("Selecione uma empresa antes de gerar o backup.");
+  const response=await fetch(API+"/database/backup"+backupQuery,{headers:{Authorization:"Bearer "+token,...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{})}});
   if(!response.ok){const d=await response.json().catch(()=>({}));throw new Error(d.message||"Não foi possível gerar o backup.");}
   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="stok-backup-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
@@ -173,5 +277,69 @@ $("restoreButton").addEventListener("click",async()=>{
  }catch(err){message(err.message||"Arquivo inválido ou falha na restauração.",true);}
 });
 
-$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
-(async()=>{if(!token)return;try{const user=await api("/auth/me");showLoggedIn(user);}catch(_){localStorage.removeItem("stok_token");token=null;}})();
+$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:$("userCompany").value}:{})})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
+
+// Carrega empresas ativas para o cadastro.
+async function loadPublicCompanies(){
+ try{
+  const companies=await api("/auth/companies"),select=$("registerCompany");select.replaceChildren();
+  const blank=document.createElement("option");blank.value="";blank.textContent="Selecione a empresa";select.appendChild(blank);
+  companies.forEach(company=>{const o=document.createElement("option");o.value=company._id;o.textContent=company.name;select.appendChild(o);});
+ }catch(err){message(err.message,true);}
+}
+async function loadChatCompanies(){
+ try{
+  const companies=await api("/chat/companies"),select=$("chatCompany"),previous=select.value;select.replaceChildren();
+  companies.forEach(company=>{const o=document.createElement("option");o.value=company._id;o.textContent=company.name;select.appendChild(o);});
+  $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
+  if(companies.some(x=>x._id===previous))select.value=previous;
+  await loadChatMessages();
+ }catch(err){message(err.message,true);}
+}
+async function loadChatMessages(){
+ try{
+  if(!$("chatCompany").value)return;
+  const qs=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
+  const messages=await api("/chat/messages"+qs),box=$("chatMessages");box.replaceChildren();
+  messages.forEach(item=>{
+   const article=document.createElement("article");article.className="chat-message";
+   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+(item.senderRole==="superadmin"?"Administrador geral STOK":"Administrador da empresa");
+   const body=document.createElement("p");body.textContent=item.message;
+   const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR");
+   article.append(heading,body,date);box.appendChild(article);
+  });
+  box.scrollTop=box.scrollHeight;
+ }catch(err){message(err.message,true);}
+}
+$("chatCompany").addEventListener("change",loadChatMessages);
+$("refreshChat").addEventListener("click",loadChatMessages);
+$("chatForm").addEventListener("submit",async e=>{
+ e.preventDefault();try{
+  const payload={message:$("chatText").value};
+  if(currentUser.role==="superadmin")payload.companyId=$("chatCompany").value;
+  await api("/chat/messages",{method:"POST",body:JSON.stringify(payload)});
+  $("chatText").value="";await loadChatMessages();message("Mensagem enviada.");
+ }catch(err){message(err.message,true);}
+});
+async function loadPendingUsers(){
+ try{
+  const users=await api("/users/pending"),box=$("pendingUsers");box.replaceChildren();
+  if(!users.length){box.textContent="Não há solicitações aguardando aprovação.";return;}
+  users.forEach(user=>{
+   const card=document.createElement("article");card.className="panel";
+   const info=document.createElement("p");info.textContent=user.name+" — "+user.email+" — setor: "+(user.sector||"não informado")+(user.companyId?.name?" — empresa: "+user.companyId.name:"");
+   const approve=document.createElement("button");approve.textContent="Aprovar";approve.addEventListener("click",()=>decideUser(user._id,"approved"));
+   const reject=document.createElement("button");reject.textContent="Recusar";reject.className="danger";reject.addEventListener("click",()=>decideUser(user._id,"rejected"));
+   card.append(info,approve,reject);box.appendChild(card);
+  });
+ }catch(err){message(err.message,true);}
+}
+async function decideUser(id,status){
+ try{const d=await api("/users/"+id+"/approval",{method:"PATCH",body:JSON.stringify({status})});message(d.message);loadPendingUsers();}
+ catch(err){message(err.message,true);}
+}
+$("pendingRefresh").addEventListener("click",refreshPendingStatus);
+$("pendingLogout").addEventListener("click",()=>$("logout").click());
+loadPublicCompanies();
+
+(async()=>{if(!token)return;try{const user=await api("/auth/me");if(user.approvalStatus==="pending"){showPending(user);}else{showLoggedIn(user);}}catch(_){localStorage.removeItem("stok_token");token=null;}})();

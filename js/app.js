@@ -10,7 +10,7 @@ async function api(path, options={}) {
   return data;
 }
 function showPending(user) {
-  currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
+  currentUser=user; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
   $("pendingMessage").textContent="Olá, "+user.name+". Sua solicitação para a empresa selecionada está aguardando aprovação. Você não pode acessar o estoque, entregas ou relatórios enquanto não for aprovado.";
 }
 async function refreshPendingStatus(){
@@ -130,15 +130,18 @@ async function loadCompaniesList() {
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
+$("showTemporary").addEventListener("click",()=>{$("login").hidden=true;$("temporaryScreen").hidden=false;});
+$("backFromTemporary").addEventListener("click",()=>{$("temporaryScreen").hidden=true;$("login").hidden=false;});
+$("temporaryForm").addEventListener("submit",async e=>{e.preventDefault();const submit=e.submitter;if(submit)submit.disabled=true;try{const d=await api("/auth/temporary-register",{method:"POST",body:JSON.stringify({name:$("temporaryCompanyName").value,responsible:$("temporaryResponsible").value,email:$("temporaryEmail").value,password:$("temporaryPassword").value})});token=d.token;localStorage.setItem("stok_token",token);$("temporaryScreen").hidden=true;e.target.reset();showLoggedIn(d.user);message(d.message);alert(d.message+"\n\nPrazo final: "+new Date(d.company.expiresAt).toLocaleString("pt-BR"));}catch(err){message(err.message,true);}finally{if(submit)submit.disabled=false;}});
 $("backToLogin").addEventListener("click",()=>{$("registerScreen").hidden=true;$("login").hidden=false;});
 $("showForgotPassword").addEventListener("click",()=>{$("login").hidden=true;$("forgotScreen").hidden=false;});
 $("backFromForgot").addEventListener("click",()=>{$("forgotScreen").hidden=true;$("login").hidden=false;});
 $("forgotForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/forgot-password",{method:"POST",body:JSON.stringify({email:$("forgotEmail").value})});message(d.message);$("forgotScreen").hidden=true;$("login").hidden=false;}catch(err){message(err.message,true);}});
 let resetToken=new URLSearchParams(window.location.search).get("reset");
-if(resetToken){token=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("login").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=false;}
+if(resetToken){token=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("login").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=false;}
 $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/reset-password",{method:"POST",body:JSON.stringify({token:resetToken,password:$("resetPassword").value})});message(d.message);window.history.replaceState({},"",window.location.pathname);$("resetScreen").hidden=true;$("login").hidden=false;resetToken=null;e.target.reset();}catch(err){message(err.message,true);}});
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
-$("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
+$("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
   const companyRequired=["products","deliveries","history"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){

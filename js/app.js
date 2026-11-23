@@ -50,6 +50,11 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
+  const companyRequired=["products","deliveries","history","sectors","databaseTools"].includes(b.dataset.tab);
+  if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
+    message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
+    return;
+  }
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="history")loadHistory();
@@ -72,7 +77,7 @@ async function loadGlobalCompanySelector(){
   let select=$("globalCompanySelect");
   if(!select){
    select=document.createElement("select");select.id="globalCompanySelect";select.setAttribute("aria-label","Empresa em administração");
-   const label=document.createElement("label");label.textContent="Empresa selecionada: ";label.appendChild(select);
+   const label=document.createElement("label");label.id="globalCompanyLabel";label.className="global-company-label";label.textContent="ADMINISTRAÇÃO GERAL — Empresa em administração: ";label.appendChild(select);
    $("welcome").after(label);
    select.addEventListener("change",()=>{
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);

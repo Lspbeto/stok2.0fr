@@ -425,15 +425,44 @@ function renderRegistryReport(){
 }
 async function loadDiagnostics(){
  try{
-  const query=currentUser?.role==="superadmin"?"":"";
-  const data=await api("/database/diagnostics"+query),box=$("diagnosticsList");box.replaceChildren();
+  const data=await api("/database/diagnostics"),box=$("diagnosticsList");box.replaceChildren();
   const issues=[];
   (data.duplicateIndexes||[]).forEach(x=>issues.push("Índice possivelmente global: "+x.name+" ("+JSON.stringify(x.key)+")."));
   (data.duplicateSectors||[]).forEach(x=>issues.push("Setor duplicado na mesma empresa: "+x.name+" — "+x.count+" registros."));
   (data.duplicatePatrimony||[]).forEach(x=>issues.push("Patrimônio duplicado: "+x.patrimonyCode+" — "+x.count+" registros."));
   const summary=document.createElement("p");summary.textContent=issues.length+" possível(is) problema(s) estrutural(is); "+(data.errors||[]).length+" erro(s) E11000 registrado(s).";$("diagnosticsSummary").replaceChildren(summary);
   issues.forEach(v=>{const p=document.createElement("p");p.className="diagnostic-warning";p.textContent=v;box.appendChild(p);});
-  (data.errors||[]).forEach(x=>{const article=document.createElement("article");article.className="diagnostic-error";const title=document.createElement("strong");title.textContent="Erro MongoDB E"+x.code+" — "+(x.collection||"coleção não identificada");const detail=document.createElement("p");detail.textContent=x.message||"Cadastro duplicado";const meta=document.createElement("small");meta.textContent=[x.index?"Índice: "+x.index:"",x.route?"Rota: "+x.route:"",x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):""].filter(Boolean).join(" • ");article.append(title,detail,meta);box.appendChild(article);});
+  (data.duplicateIndexes||[]).forEach(x=>{
+   if(x.name!=="name_1"||currentUser?.role!=="superadmin")return;
+   const card=document.createElement("article");card.className="diagnostic-warning";
+   const info=document.createElement("p");info.textContent="Sugestão: substituir o índice global name_1 por um índice único composto por empresa + nome do setor. Cadastros não serão apagados.";
+   const btn=document.createElement("button");btn.type="button";btn.textContent="Corrigir índice name_1";
+   btn.addEventListener("click",async()=>{if(!confirm("Verificar duplicidades, criar o índice companyId + name e remover somente name_1? Nenhum cadastro será apagado."))return;try{const r=await api("/database/diagnostics/fix-sector-index",{method:"POST"});message(r.message);await loadDiagnostics();}catch(err){message(err.message,true);}});
+   card.append(info,btn);box.appendChild(card);
+  });
+  (data.errors||[]).forEach(x=>{
+   const article=document.createElement("article");article.className="diagnostic-error";
+   const title=document.createElement("strong");title.textContent="Erro MongoDB E"+x.code+" — "+(x.collection||"coleção não identificada");
+   const detail=document.createElement("p");detail.textContent=x.message||"Cadastro duplicado";
+   const pairs=x.keyValue&&typeof x.keyValue==="object"?Object.entries(x.keyValue).map(([k,v])=>k+" = "+String(v)).join(", "):"não informado";
+   const variable=document.createElement("p");variable.textContent="Variável/valor: "+pairs+" | Índice: "+(x.index||"não identificado");
+   const meta=document.createElement("small");meta.textContent=[x.route?"Rota: "+x.route:"",x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):""].filter(Boolean).join(" • ");
+   article.append(title,detail,variable,meta);
+   if(x.collection==="sectors"&&x.keyValue?.name){
+    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar valor da variável name";edit.className="secondary";
+    edit.addEventListener("click",async()=>{
+     try{
+      if(!registryCache.length)await loadRegistryReport();
+      const matches=registryCache.filter(r=>r.type==="Setor"&&r.name===String(x.keyValue.name)&&(!x.companyId||r.companyId===x.companyId));
+      if(matches.length!==1){message(matches.length?"Mais de um setor encontrado. Use Consulta de cadastros para escolher o correto.":"Não foi possível identificar um único setor. Use Consulta de cadastros para localizar e editar o registro.",true);return;}
+      await editRegistryRecord(matches[0]);await loadDiagnostics();
+     }catch(err){message(err.message,true);}
+    });article.appendChild(edit);
+   }
+   const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir registro deste erro";remove.className="danger";
+   remove.addEventListener("click",async()=>{if(!confirm("Excluir somente este registro do relatório? O cadastro original será preservado."))return;try{const r=await api("/database/diagnostics/errors/"+encodeURIComponent(x._id),{method:"DELETE"});message(r.message);await loadDiagnostics();}catch(err){message(err.message,true);}});
+   article.appendChild(remove);box.appendChild(article);
+  });
   if(!issues.length&&!(data.errors||[]).length){const p=document.createElement("p");p.textContent="Nenhuma duplicidade detectada ou erro E11000 registrado no escopo consultado.";box.appendChild(p);}
  }catch(err){message(err.message,true);}
 }

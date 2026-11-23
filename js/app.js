@@ -53,6 +53,11 @@ async function loadGlobalCompanySelector(){
  try{
   const previousSelection=selectedCompanyId;selectedCompanyId="";
   const companies=await api("/companies");
+  let userCompany=$("userCompany");
+  if(!userCompany){userCompany=document.createElement("select");userCompany.id="userCompany";userCompany.required=true;const label=document.createElement("label");label.id="userCompanyLabel";label.textContent="Empresa do novo usuário: ";label.appendChild(userCompany);$("userForm").insertBefore(label,$("userRole"));}
+  userCompany.replaceChildren();const userBlank=document.createElement("option");userBlank.value="";userBlank.textContent="Selecione a empresa";userCompany.appendChild(userBlank);
+  companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;userCompany.appendChild(o);});
+  $("userCompanyLabel").hidden=currentUser?.role!=="superadmin";
   let select=$("globalCompanySelect");
   if(!select){
    select=document.createElement("select");select.id="globalCompanySelect";select.setAttribute("aria-label","Empresa em administração");
@@ -256,7 +261,7 @@ $("restoreButton").addEventListener("click",async()=>{
  }catch(err){message(err.message||"Arquivo inválido ou falha na restauração.",true);}
 });
 
-$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
+$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:$("userCompany").value}:{})})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
 // Carrega empresas ativas para o cadastro.
 async function loadPublicCompanies(){

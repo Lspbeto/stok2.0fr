@@ -51,6 +51,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
 // O administrador geral escolhe a empresa cujos dados deseja administrar.
 async function loadGlobalCompanySelector(){
  try{
+  const previousSelection=selectedCompanyId;selectedCompanyId="";
   const companies=await api("/companies");
   let select=$("globalCompanySelect");
   if(!select){
@@ -66,7 +67,7 @@ async function loadGlobalCompanySelector(){
   select.replaceChildren();
   const empty=document.createElement("option");empty.value="";empty.textContent="Selecione uma empresa";select.appendChild(empty);
   companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;select.appendChild(o);});
-  if(companies.some(c=>c._id===selectedCompanyId&&c.active!==false))select.value=selectedCompanyId;
+  if(companies.some(c=>c._id===previousSelection&&c.active!==false)){selectedCompanyId=previousSelection;select.value=selectedCompanyId;}
   else {selectedCompanyId="";localStorage.removeItem("stok_company_id");select.value="";}
   if(!selectedCompanyId)message("Administrador geral: selecione uma empresa antes de abrir estoque, setores ou relatórios.");
  }catch(err){message(err.message,true);}

@@ -234,7 +234,9 @@ $("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{
  try{
-  const response=await fetch(API+"/database/backup",{headers:{Authorization:"Bearer "+token}});
+  const backupQuery=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  if(currentUser?.role==="superadmin"&&!selectedCompanyId)throw new Error("Selecione uma empresa antes de gerar o backup.");
+  const response=await fetch(API+"/database/backup"+backupQuery,{headers:{Authorization:"Bearer "+token,...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{})}});
   if(!response.ok){const d=await response.json().catch(()=>({}));throw new Error(d.message||"Não foi possível gerar o backup.");}
   const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="stok-backup-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);

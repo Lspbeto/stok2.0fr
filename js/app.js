@@ -89,7 +89,7 @@ document.querySelectorAll("[data-toggle-password]").forEach(button => {
 // O identificador da empresa é sugerido automaticamente a partir do nome.
 $("companyName").addEventListener("input", () => {
   $("companySlug").value = $("companyName").value.normalize("NFD")
-    .replace(/[\\u0300-\\u036f]/g, "").toLowerCase()
+    .replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 });
 

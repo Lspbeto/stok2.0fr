@@ -9,15 +9,24 @@ async function api(path, options={}) {
   if(!response.ok) throw new Error(data.message||"Não foi possível concluir a operação.");
   return data;
 }
-function showLoggedIn(user) {
-  currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
-  $("welcome").textContent="Olá, "+user.name+" ("+user.role+")"; $("usersTab").hidden=user.role!=="admin"; $("databaseTab").hidden=user.role!=="admin"; $("databaseTools").hidden=true;
-  loadSectors();
-  $("sectorsTab").hidden=user.role!=="admin";
-  loadProducts();
-  if(user.role==="operador") $("deliveryForm").hidden=true;
+function showPending(user) {
+  currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
+  $("pendingMessage").textContent="Olá, "+user.name+". Sua solicitação para a empresa selecionada está aguardando aprovação. Você não pode acessar o estoque, entregas ou relatórios enquanto não for aprovado.";
 }
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);showLoggedIn(d.user);message("Login realizado.");}catch(err){message(err.message,true);}});
+async function refreshPendingStatus(){
+ try{const user=await api("/auth/me");if(user.approvalStatus==="approved"){ $("pendingScreen").hidden=true; showLoggedIn(user); message("Acesso aprovado. Bem-vindo ao STOK.");}else if(user.approvalStatus==="rejected"){$("pendingMessage").textContent="Sua solicitação foi recusada. Entre em contato com o administrador da empresa."; }else{$("pendingMessage").textContent="Sua solicitação continua aguardando aprovação do administrador.";}}
+ catch(err){$("pendingMessage").textContent=err.message;}
+}
+function showLoggedIn(user) {
+  currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
+  $("welcome").textContent="Olá, "+user.name+" ("+user.role+")"; const isAdmin=["admin","superadmin"].includes(user.role); $("usersTab").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  loadSectors();
+  $("sectorsTab").hidden=!isAdmin;
+  loadProducts();
+  if(user.role==="operador"||user.role==="superadmin") $("deliveryForm").hidden=true;
+  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
 $("backToLogin").addEventListener("click",()=>{$("registerScreen").hidden=true;$("login").hidden=false;});
@@ -27,7 +36,7 @@ $("forgotForm").addEventListener("submit",async e=>{e.preventDefault();try{const
 let resetToken=new URLSearchParams(window.location.search).get("reset");
 if(resetToken){token=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("login").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=false;}
 $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/reset-password",{method:"POST",body:JSON.stringify({token:resetToken,password:$("resetPassword").value})});message(d.message);window.history.replaceState({},"",window.location.pathname);$("resetScreen").hidden=true;$("login").hidden=false;resetToken=null;e.target.reset();}catch(err){message(err.message,true);}});
-$("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value})});token=d.token;localStorage.setItem("stok_token",token);showLoggedIn(d.user);e.target.reset();message("Conta de operador criada. Setor: "+d.user.sector);}catch(err){message(err.message,true);}});
+$("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
@@ -36,6 +45,8 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="sectors")loadSectors();
+  if(b.dataset.tab==="chat")loadChatMessages();
+  if(b.dataset.tab==="approvals")loadPendingUsers();
 }));
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
 
@@ -43,7 +54,7 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 async function loadSectors(){
  try{
   cachedSectors=await api("/sectors");
-  const selects=["productSector","assetSector","deliverySector","userSector","registerSector"];
+  const selects=["productSector","assetSector","deliverySector","userSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
@@ -234,4 +245,4 @@ async function loadPublicSectors(){
 }
 loadPublicSectors();
 
-(async()=>{if(!token)return;try{const user=await api("/auth/me");showLoggedIn(user);}catch(_){localStorage.removeItem("stok_token");token=null;}})();
+(async()=>{if(!token)return;try{const user=await api("/auth/me");if(user.approvalStatus==="pending"){showPending(user);}else{showLoggedIn(user);}}catch(_){localStorage.removeItem("stok_token");token=null;}})();

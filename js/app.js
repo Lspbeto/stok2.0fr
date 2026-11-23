@@ -272,7 +272,7 @@ async function loadProducts(){try{
   if(!asset){["ENTRADA","SAIDA"].forEach(type=>{
    const b=document.createElement("button");b.textContent=type==="ENTRADA"?"Entrada +":"Saída −";b.className=type==="SAIDA"?"secondary":"";b.style.margin="2px";b.addEventListener("click",()=>stockMove(p,type));actions.appendChild(b);
   });}
-  if(asset&&currentUser.role==="admin"){
+  if(asset&&["admin","superadmin"].includes(currentUser.role)){
    const transfer=document.createElement("button");transfer.textContent="Transferir setor";transfer.style.margin="2px";
    transfer.addEventListener("click",async()=>{const sector=prompt("Novo setor responsável pelo bem "+p.name+":",p.responsibleSector||"");if(!sector)return;try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector})});message(d.message);loadProducts();}catch(err){message(err.message,true);}});
    actions.appendChild(transfer);

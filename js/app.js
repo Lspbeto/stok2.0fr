@@ -152,7 +152,15 @@ async function loadDeliveries(){
  try{
   const [items,products]=await Promise.all([api("/deliveries"),api("/products")]);
   const select=$("deliveryProduct");select.replaceChildren();
-  products.filter(p=>p.category!=="BEM").forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");
+  function updateDeliveryQuantity(){
+   const selected=products.find(p=>p._id===deliveryProduct.value),asset=selected?.category==="BEM";
+   deliveryQuantity.max=asset?"1":String(selected?.quantity??"");deliveryQuantity.step=asset?"1":"0.001";deliveryQuantity.min=asset?"1":"0.001";
+   deliveryQuantity.value=asset?"1":"";deliveryQuantity.readOnly=asset;
+   deliveryQuantity.title=asset?"Bem permanente é controlado individualmente (1 unidade).":"";
+  }
+  deliveryProduct.onchange=updateDeliveryQuantity;updateDeliveryQuantity();
   $("deliveryForm").hidden=currentUser.role!=="admin";
   $("deliveryList").replaceChildren();
   items.forEach(d=>{
@@ -162,10 +170,13 @@ async function loadDeliveries(){
    (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" — "+e.quantity+" "+e.unit+" — "+(e.details||"");card.appendChild(p);});
    if(!d.closed){
     const form=document.createElement("form");form.className="form-grid";
-    const type=document.createElement("select");["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
-    const qty=document.createElement("input");qty.type="number";qty.min="0.001";qty.step="0.001";qty.placeholder="Quantidade";qty.required=true;
+    const isAsset=d.category==="BEM";
+    const type=document.createElement("select");(isAsset?["DEVOLUCAO","TRANSFERENCIA"]:["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"]).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
+    const qty=document.createElement("input");qty.type="number";qty.min=isAsset?"1":"0.001";qty.max=String(Number(d.quantity)-Number(d.accounted||0));qty.step=isAsset?"1":"0.001";qty.value=isAsset?"1":"";qty.placeholder="Quantidade";qty.required=true;qty.readOnly=isAsset;
     const note=document.createElement("input");note.placeholder="Justificativa / observação";
     const target=document.createElement("select");const targetBlank=document.createElement("option");targetBlank.value="";targetBlank.textContent="Setor de destino (transferência)";target.appendChild(targetBlank);cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;target.appendChild(o);});
+    const updateDestinationFields=()=>{target.hidden=type.value!=="TRANSFERENCIA";target.required=type.value==="TRANSFERENCIA";};
+    type.addEventListener("change",updateDestinationFields);updateDestinationFields();
     const add=document.createElement("button");add.textContent="Registrar destino";
     form.append(type,qty,note,target,add);
     form.addEventListener("submit",async ev=>{ev.preventDefault();try{await api("/deliveries/"+d._id+"/account",{method:"POST",body:JSON.stringify({type:type.value,quantity:Number(qty.value),note:note.value,targetSector:target.value})});message("Destino registrado no histórico.");loadDeliveries();}catch(err){message(err.message,true);}});

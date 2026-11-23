@@ -187,7 +187,7 @@ async function loadDeliveries(){
   });
  }catch(err){message(err.message,true);}
 }
-$("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/deliveries",{method:"POST",body:JSON.stringify({productId:$("deliveryProduct").value,quantity:Number($("deliveryQuantity").value),sector:$("deliverySector").value})});e.target.reset();message("Entrega registrada e estoque baixado.");loadProducts();loadDeliveries();}catch(err){message(err.message,true);}});
+$("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/deliveries",{method:"POST",body:JSON.stringify({productId:$("deliveryProduct").value,quantity:Number($("deliveryQuantity").value),sector:$("deliverySector").value})});e.target.reset();const selectedLabel=$("deliveryProduct").selectedOptions[0]?.textContent||"";message(selectedLabel.startsWith("[BEM PERMANENTE]")?"Bem atribuído ao setor e histórico atualizado.":"Entrega registrada e estoque baixado.");loadProducts();loadDeliveries();}catch(err){message(err.message,true);}});
 
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{

@@ -372,7 +372,7 @@ async function editRegistryRecord(record){
    const email=window.prompt("E-mail:",record.email);if(email===null)return;
    const sector=record.role==="operador"?window.prompt("Setor:",record.sector||""):(record.sector||"");
    if(sector===null)return;
-   const d=await api("/users/"+record._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(d.message);
+   const d=await registryApi(record,"/users/"+record._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(d.message);
   }else if(record.type==="Produto / bem"){
    const name=window.prompt("Nome do item:",record.name);if(name===null)return;
    const payload={name};

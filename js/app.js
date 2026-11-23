@@ -80,7 +80,7 @@ document.querySelectorAll("[data-toggle-password]").forEach(button => {
     if (!field) return;
     const visible = field.type === "password";
     field.type = visible ? "text" : "password";
-    button.textContent = visible ? "Ocultar" : "Mostrar";
+    button.innerHTML = visible ? "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8\"/><path d=\"M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1 0 2-.2 2.9-.5\"/></svg>" : "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>";
     button.setAttribute("aria-label", visible ? "Ocultar senha" : "Mostrar senha");
     button.setAttribute("aria-pressed", String(visible));
   });

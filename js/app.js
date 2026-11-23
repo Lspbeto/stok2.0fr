@@ -352,14 +352,71 @@ async function loadRegistryReport(){
   renderRegistryReport();$("registrySummary").textContent=registryCache.length+" cadastro(s) encontrado(s).";
  }catch(err){message(err.message,true);}
 }
+
+async function registryApi(record,path,options={}){
+ const headers={...(options.headers||{})};
+ if(record.companyId)headers["X-Company-Id"]=record.companyId;
+ return api(path,{...options,headers});
+}
+async function editRegistryRecord(record){
+ try{
+  if(record.type==="Empresa"){
+   const name=window.prompt("Nome da empresa:",record.name);if(name===null)return;
+   const slug=window.prompt("Identificador da empresa:",record.slug||"");if(slug===null)return;
+   const d=await api("/companies/"+record._id,{method:"PATCH",body:JSON.stringify({name,slug})});message(d.message);
+  }else if(record.type==="Setor"){
+   const name=window.prompt("Novo nome do setor:",record.name);if(name===null)return;
+   const d=await registryApi(record,"/sectors/"+record._id,{method:"PATCH",body:JSON.stringify({name})});message(d.message);
+  }else if(record.type==="Usuário"){
+   const name=window.prompt("Nome:",record.name);if(name===null)return;
+   const email=window.prompt("E-mail:",record.email);if(email===null)return;
+   const sector=record.role==="operador"?window.prompt("Setor:",record.sector||""):(record.sector||"");
+   if(sector===null)return;
+   const d=await api("/users/"+record._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(d.message);
+  }else if(record.type==="Produto / bem"){
+   const name=window.prompt("Nome do item:",record.name);if(name===null)return;
+   const payload={name};
+   const code=window.prompt("Código:",record.code||"");if(code===null)return;payload.code=code;
+   if(record.category==="BEM"){const patrimonyCode=window.prompt("Número de patrimônio:",record.patrimonyCode||"");if(patrimonyCode===null)return;payload.patrimonyCode=patrimonyCode;}
+   const d=await registryApi(record,"/products/"+record._id,{method:"PUT",body:JSON.stringify(payload)});message("Cadastro atualizado.");
+  }
+  await loadRegistryReport();
+ }catch(err){message(err.message,true);}
+}
+async function deactivateRegistryRecord(record){
+ const label=record.name||record.email||"este cadastro";
+ if(!window.confirm("Deseja desativar "+label+"? O histórico será preservado."))return;
+ try{
+  let d;
+  if(record.type==="Empresa")d=await api("/companies/"+record._id+"/deactivate",{method:"PATCH"});
+  else if(record.type==="Setor")d=await registryApi(record,"/sectors/"+record._id+"/deactivate",{method:"PATCH"});
+  else if(record.type==="Usuário")d=await api("/users/"+record._id+"/deactivate",{method:"PATCH"});
+  else if(record.type==="Produto / bem")d=await registryApi(record,"/products/"+record._id,{method:"DELETE"});
+  message(d?.message||"Cadastro desativado. Histórico preservado.");
+  await loadRegistryReport();await loadDiagnostics();
+ }catch(err){message(err.message,true);}
+}
+
 function renderRegistryReport(){
  const term=($("registrySearch").value||"").toLocaleLowerCase("pt-BR"),type=$("registryType").value;
  const items=registryCache.filter(x=>(!type||x.type===type)&&[x.name,x.email,x.patrimonyCode,x.code,x.companyName,x.role,x.sector].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(term)));
  const box=$("registryRecords");box.replaceChildren();
  const table=document.createElement("table"),head=document.createElement("thead"),hr=document.createElement("tr");
- ["Tipo","Cadastro","Empresa","Detalhes","Situação","Criado em"].forEach(v=>{const th=document.createElement("th");th.textContent=v;hr.appendChild(th);});head.appendChild(hr);table.appendChild(head);
+ ["Tipo","Cadastro","Empresa","Detalhes","Situação","Criado em","Ações"].forEach(v=>{const th=document.createElement("th");th.textContent=v;hr.appendChild(th);});head.appendChild(hr);table.appendChild(head);
  const body=document.createElement("tbody");
- items.forEach(x=>{const tr=document.createElement("tr");addCell(tr,x.type);addCell(tr,x.name||x.email||"—");addCell(tr,x.type==="Empresa"?(x.name||"—"):(x.companyName||"—"));addCell(tr,x.type==="Usuário"?[x.email,x.role,x.sector].filter(Boolean).join(" • "):x.type==="Produto / bem"?[x.category,x.patrimonyCode?"Patrimônio: "+x.patrimonyCode:"",x.quantity!==undefined?"Qtd.: "+x.quantity+" "+(x.unit||""):"",x.responsibleSector].filter(Boolean).join(" • "):x.type==="Setor"?"Setor operacional":"Identificador: "+(x.slug||"—"));addCell(tr,x.active===false?"Inativo":(x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"));addCell(tr,x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):"—");body.appendChild(tr);});
+ items.forEach(x=>{
+  const tr=document.createElement("tr");
+  addCell(tr,x.type);addCell(tr,x.name||x.email||"—");addCell(tr,x.type==="Empresa"?(x.name||"—"):(x.companyName||"—"));
+  addCell(tr,x.type==="Usuário"?[x.email,x.role,x.sector].filter(Boolean).join(" • "):x.type==="Produto / bem"?[x.category,x.patrimonyCode?"Patrimônio: "+x.patrimonyCode:"",x.quantity!==undefined?"Qtd.: "+x.quantity+" "+(x.unit||""):"",x.responsibleSector].filter(Boolean).join(" • "):x.type==="Setor"?"Setor operacional":"Identificador: "+(x.slug||"—"));
+  addCell(tr,x.active===false?"Inativo":(x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"));
+  addCell(tr,x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):"—");
+  const actions=document.createElement("td");
+  if(x.active!==false){
+   const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.className="secondary";edit.addEventListener("click",()=>editRegistryRecord(x));actions.appendChild(edit);
+   const deactivate=document.createElement("button");deactivate.type="button";deactivate.textContent="Desativar";deactivate.className="danger";deactivate.addEventListener("click",()=>deactivateRegistryRecord(x));actions.appendChild(deactivate);
+  }else actions.textContent="Sem ações";
+  tr.appendChild(actions);body.appendChild(tr);
+ });
  table.appendChild(body);box.appendChild(table);
  $("registrySummary").textContent=items.length+" de "+registryCache.length+" cadastro(s) exibido(s).";
 }

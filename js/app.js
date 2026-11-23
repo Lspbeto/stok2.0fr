@@ -232,17 +232,67 @@ $("restoreButton").addEventListener("click",async()=>{
 
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
-// Preenche o setor no formulário de criação de conta antes do primeiro login.
-async function loadPublicSectors(){
+// Carrega empresas ativas para o cadastro.
+async function loadPublicCompanies(){
  try{
-  const response=await fetch(API+"/sectors/public");
-  if(!response.ok)throw new Error("Não foi possível carregar os setores.");
-  const sectors=await response.json(),select=$("registerSector");
-  select.replaceChildren();
-  const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor onde trabalha";select.appendChild(blank);
-  sectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;select.appendChild(o);});
+  const companies=await api("/auth/companies"),select=$("registerCompany");select.replaceChildren();
+  const blank=document.createElement("option");blank.value="";blank.textContent="Selecione a empresa";select.appendChild(blank);
+  companies.forEach(company=>{const o=document.createElement("option");o.value=company._id;o.textContent=company.name;select.appendChild(o);});
  }catch(err){message(err.message,true);}
 }
-loadPublicSectors();
+async function loadChatCompanies(){
+ try{
+  const companies=await api("/chat/companies"),select=$("chatCompany"),previous=select.value;select.replaceChildren();
+  companies.forEach(company=>{const o=document.createElement("option");o.value=company._id;o.textContent=company.name;select.appendChild(o);});
+  $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
+  if(companies.some(x=>x._id===previous))select.value=previous;
+  await loadChatMessages();
+ }catch(err){message(err.message,true);}
+}
+async function loadChatMessages(){
+ try{
+  if(!$("chatCompany").value)return;
+  const qs=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
+  const messages=await api("/chat/messages"+qs),box=$("chatMessages");box.replaceChildren();
+  messages.forEach(item=>{
+   const article=document.createElement("article");article.className="chat-message";
+   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+(item.senderRole==="superadmin"?"Administrador geral STOK":"Administrador da empresa");
+   const body=document.createElement("p");body.textContent=item.message;
+   const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR");
+   article.append(heading,body,date);box.appendChild(article);
+  });
+  box.scrollTop=box.scrollHeight;
+ }catch(err){message(err.message,true);}
+}
+$("chatCompany").addEventListener("change",loadChatMessages);
+$("refreshChat").addEventListener("click",loadChatMessages);
+$("chatForm").addEventListener("submit",async e=>{
+ e.preventDefault();try{
+  const payload={message:$("chatText").value};
+  if(currentUser.role==="superadmin")payload.companyId=$("chatCompany").value;
+  await api("/chat/messages",{method:"POST",body:JSON.stringify(payload)});
+  $("chatText").value="";await loadChatMessages();message("Mensagem enviada.");
+ }catch(err){message(err.message,true);}
+});
+async function loadPendingUsers(){
+ try{
+  const users=await api("/users/pending"),box=$("pendingUsers");box.replaceChildren();
+  if(!users.length){box.textContent="Não há solicitações aguardando aprovação.";return;}
+  users.forEach(user=>{
+   const card=document.createElement("article");card.className="panel";
+   const info=document.createElement("p");info.textContent=user.name+" — "+user.email+" — setor: "+(user.sector||"não informado")+(user.companyId?.name?" — empresa: "+user.companyId.name:"");
+   const approve=document.createElement("button");approve.textContent="Aprovar";approve.addEventListener("click",()=>decideUser(user._id,"approved"));
+   const reject=document.createElement("button");reject.textContent="Recusar";reject.className="danger";reject.addEventListener("click",()=>decideUser(user._id,"rejected"));
+   card.append(info,approve,reject);box.appendChild(card);
+  });
+ }catch(err){message(err.message,true);}
+}
+async function decideUser(id,status){
+ try{const d=await api("/users/"+id+"/approval",{method:"PATCH",body:JSON.stringify({status})});message(d.message);loadPendingUsers();}
+ catch(err){message(err.message,true);}
+}
+$("pendingRefresh").addEventListener("click",refreshPendingStatus);
+$("pendingLogout").addEventListener("click",()=>$("logout").click());
+loadPublicCompanies();
 
 (async()=>{if(!token)return;try{const user=await api("/auth/me");if(user.approvalStatus==="pending"){showPending(user);}else{showLoggedIn(user);}}catch(_){localStorage.removeItem("stok_token");token=null;}})();

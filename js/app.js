@@ -1,10 +1,10 @@
 // Interface do STOK: estoque, entregas, usuários, histórico e relatórios.
 const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
-let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedSectors = [];
+let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
-  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(options.headers||{})}});
+  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok) throw new Error(data.message||"Não foi possível concluir a operação.");
   return data;
@@ -24,7 +24,7 @@ function showLoggedIn(user) {
   $("sectorsTab").hidden=!isAdmin;
   loadProducts();
   if(user.role==="operador"||user.role==="superadmin") $("deliveryForm").hidden=true;
-  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+  if(isAdmin){loadChatCompanies();loadPendingUsers();} if(user.role==="superadmin")loadGlobalCompanySelector();
 }
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
@@ -48,6 +48,29 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="chat")loadChatMessages();
   if(b.dataset.tab==="approvals")loadPendingUsers();
 }));
+// O administrador geral escolhe a empresa cujos dados deseja administrar.
+async function loadGlobalCompanySelector(){
+ try{
+  const companies=await api("/companies");
+  let select=$("globalCompanySelect");
+  if(!select){
+   select=document.createElement("select");select.id="globalCompanySelect";select.setAttribute("aria-label","Empresa em administração");
+   const label=document.createElement("label");label.textContent="Empresa selecionada: ";label.appendChild(select);
+   $("welcome").after(label);
+   select.addEventListener("change",()=>{
+    selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
+    if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados.",true);return;}
+    loadSectors();loadProducts();loadHistory();loadDeliveries();
+   });
+  }
+  select.replaceChildren();
+  const empty=document.createElement("option");empty.value="";empty.textContent="Selecione uma empresa";select.appendChild(empty);
+  companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;select.appendChild(o);});
+  if(companies.some(c=>c._id===selectedCompanyId&&c.active!==false))select.value=selectedCompanyId;
+  else {selectedCompanyId="";localStorage.removeItem("stok_company_id");select.value="";}
+  if(!selectedCompanyId)message("Administrador geral: selecione uma empresa antes de abrir estoque, setores ou relatórios.");
+ }catch(err){message(err.message,true);}
+}
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
 
 // Carrega setores oficiais e preenche os campos de seleção da interface.

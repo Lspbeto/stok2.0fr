@@ -19,12 +19,23 @@ async function refreshPendingStatus(){
 }
 function showLoggedIn(user) {
   currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
-  $("welcome").textContent="Olá, "+user.name+" ("+user.role+")"; const isAdmin=["admin","superadmin"].includes(user.role); $("usersTab").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
-  loadSectors();
+  const isSuperAdmin=user.role==="superadmin";
+  const isAdmin=["admin","superadmin"].includes(user.role);
+  $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
+  $("usersTab").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   $("sectorsTab").hidden=!isAdmin;
-  loadProducts();
-  if(user.role==="operador"||user.role==="superadmin") $("deliveryForm").hidden=true;
-  if(isAdmin){loadChatCompanies();loadPendingUsers();} if(user.role==="superadmin")loadGlobalCompanySelector();
+  $("deliveryForm").hidden=user.role!=="admin";
+  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+  if(isSuperAdmin){
+    // O administrador geral precisa escolher a empresa antes de consultar dados.
+    $("globalCompanySelect")?.closest("label")?.remove();
+    loadGlobalCompanySelector();
+  }else{
+    selectedCompanyId="";
+    localStorage.removeItem("stok_company_id");
+    loadSectors();
+    loadProducts();
+  }
 }
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.

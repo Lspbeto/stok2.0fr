@@ -124,3 +124,30 @@
 .database-actions input{width:100%;margin-top:6px}
 #databaseTools{border-left:4px solid #d18a18}
 @media(max-width:680px){.database-actions{grid-template-columns:1fr}}
+
+
+/* Relatórios: quebra palavras e textos longos, inclusive durante a impressão. */
+#history .table-wrap{overflow-x:auto;overflow-y:visible}
+#history table{width:100%;table-layout:auto}
+#history th,#history td{
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  vertical-align:top;
+  min-width:90px;
+}
+#history td:last-child{min-width:180px;max-width:420px}
+@media print{
+  @page{size:landscape;margin:12mm}
+  #history .table-wrap{overflow:visible!important;border:0}
+  #history table{width:100%!important;table-layout:fixed;font-size:9pt}
+  #history th,#history td{
+    white-space:normal!important;
+    overflow-wrap:anywhere!important;
+    word-break:normal!important;
+    padding:5px 4px;
+  }
+  #history tr{break-inside:avoid}
+  #history thead{display:table-header-group}
+  #history{overflow:visible!important}
+}

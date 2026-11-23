@@ -174,3 +174,20 @@
 #chatForm textarea{width:100%;min-height:84px;resize:vertical}
 #pendingUsers .panel{margin:12px 0}
 #pendingUsers button{margin:4px 8px 4px 0}
+
+/* Seletor destacado para o administrador geral do STOK. */
+.global-company-label{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  margin:12px 0;
+  border:1px solid #b9c9e5;
+  border-left:4px solid var(--blue);
+  border-radius:8px;
+  background:#f5f8ff;
+  color:#173b88;
+  font-weight:750;
+}
+.global-company-label select{min-width:min(100%,280px);flex:1;max-width:520px}

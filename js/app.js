@@ -201,4 +201,18 @@ $("restoreButton").addEventListener("click",async()=>{
 });
 
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
+
+// Preenche o setor no formulário de criação de conta antes do primeiro login.
+async function loadPublicSectors(){
+ try{
+  const response=await fetch(API+"/sectors/public");
+  if(!response.ok)throw new Error("Não foi possível carregar os setores.");
+  const sectors=await response.json(),select=$("registerSector");
+  select.replaceChildren();
+  const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor onde trabalha";select.appendChild(blank);
+  sectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;select.appendChild(o);});
+ }catch(err){message(err.message,true);}
+}
+loadPublicSectors();
+
 (async()=>{if(!token)return;try{const user=await api("/auth/me");showLoggedIn(user);}catch(_){localStorage.removeItem("stok_token");token=null;}})();

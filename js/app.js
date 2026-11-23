@@ -177,7 +177,8 @@ async function loadGlobalCompanySelector(){
   companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;select.appendChild(o);});
   if(companies.some(c=>c._id===previousSelection&&c.active!==false)){selectedCompanyId=previousSelection;select.value=selectedCompanyId;}
   else {selectedCompanyId="";localStorage.removeItem("stok_company_id");select.value="";}
-  if(!selectedCompanyId)message("Administrador geral: selecione uma empresa antes de abrir estoque, setores ou relatórios.");
+  $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
+  if(selectedCompanyId){loadSectors();}else message("Administrador geral: selecione uma empresa para cadastrar setores e usuários.");
  }catch(err){message(err.message,true);}
 }
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}

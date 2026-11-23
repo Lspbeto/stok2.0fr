@@ -193,3 +193,5 @@
 .global-company-label select{min-width:min(100%,280px);flex:1;max-width:520px}
 
 .password-field{display:flex;align-items:stretch;gap:6px;width:100%}.password-field input{flex:1;min-width:0}.password-toggle{flex:0 0 auto;padding:9px 12px;background:#65748b;color:#fff;border-radius:7px;font-size:12px}.password-toggle:hover{filter:brightness(.92)}#companies .form-grid .password-field{min-width:0}
+
+.registry-tools{margin-top:28px;padding-top:18px;border-top:1px solid var(--line)}.registry-tools .toolbar{justify-content:flex-start}.registry-tools .toolbar input{flex:1;min-width:220px}.registry-tools .table-wrap{max-height:520px;overflow:auto}.registry-tools table{min-width:850px}.diagnostic-warning,.diagnostic-error{padding:12px;margin:9px 0;border-radius:7px;background:#fff7e6;border:1px solid #f0d18a;overflow-wrap:anywhere}.diagnostic-error{background:#fff0ef;border-color:#f2b8b5}.diagnostic-error p{overflow-wrap:anywhere;margin:7px 0}.diagnostic-error small{color:#65748b}

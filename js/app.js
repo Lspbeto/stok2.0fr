@@ -70,7 +70,8 @@ function toggleProductFields(){
  $("unit").required=!asset;
  $("expiryDate").required=false;
  $("patrimonyCode").required=asset;
- $("responsibleSector").required=asset;
+ $("assetSector").required=asset;
+ $("productSector").required=!asset;
 }
 $("productCategory").addEventListener("change",toggleProductFields);
 toggleProductFields();

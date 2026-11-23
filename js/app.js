@@ -43,7 +43,7 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 async function loadSectors(){
  try{
   cachedSectors=await api("/sectors");
-  const selects=["productSector","assetSector","deliverySector","userSector"];
+  const selects=["productSector","assetSector","deliverySector","userSector","registerSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
@@ -161,7 +161,7 @@ async function loadDeliveries(){
    (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" — "+e.quantity+" "+e.unit+" — "+(e.details||"");card.appendChild(p);});
    if(!d.closed){
     const form=document.createElement("form");form.className="form-grid";
-    const type=document.createElement("select");["DEVOLUCAO","CONSUMO","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;type.appendChild(o);});
+    const type=document.createElement("select");["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
     const qty=document.createElement("input");qty.type="number";qty.min="0.001";qty.step="0.001";qty.placeholder="Quantidade";qty.required=true;
     const note=document.createElement("input");note.placeholder="Justificativa / observação";
     const target=document.createElement("select");const targetBlank=document.createElement("option");targetBlank.value="";targetBlank.textContent="Setor de destino (transferência)";target.appendChild(targetBlank);cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;target.appendChild(o);});

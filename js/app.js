@@ -1,6 +1,6 @@
 // Interface do STOK: estoque, entregas, usuários, histórico e relatórios.
 const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
-let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [];
+let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedSectors = [];
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
@@ -12,6 +12,8 @@ async function api(path, options={}) {
 function showLoggedIn(user) {
   currentUser=user; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   $("welcome").textContent="Olá, "+user.name+" ("+user.role+")"; $("usersTab").hidden=user.role!=="admin"; $("databaseTab").hidden=user.role!=="admin"; $("databaseTools").hidden=true;
+  loadSectors();
+  $("sectorsTab").hidden=user.role!=="admin";
   loadProducts();
   if(user.role==="operador") $("deliveryForm").hidden=true;
 }
@@ -33,8 +35,33 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
+  if(b.dataset.tab==="sectors")loadSectors();
 }));
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
+
+// Carrega setores oficiais e preenche os campos de seleção da interface.
+async function loadSectors(){
+ try{
+  cachedSectors=await api("/sectors");
+  const selects=["productSector","assetSector","deliverySector","userSector"];
+  selects.forEach(id=>{
+   const el=$(id);if(!el)return;
+   const previous=el.value;el.replaceChildren();
+   const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
+   cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
+   if(cachedSectors.some(s=>s.name===previous))el.value=previous;
+   else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
+   else if(id==="productSector"||id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+  });
+  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const p=document.createElement("p");p.textContent=s.name+" — ativo";list.appendChild(p);});}
+ }catch(err){message(err.message,true);}
+}
+$("sectorForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ try{await api("/sectors",{method:"POST",body:JSON.stringify({name:$("sectorName").value})});$("sectorName").value="";await loadSectors();message("Setor criado e disponível nos cadastros.");}
+ catch(err){message(err.message,true);}
+});
+
 function toggleProductFields(){
  const asset=$("productCategory").value==="BEM";
  $("goodsFields").hidden=asset;$("assetFields").hidden=!asset;
@@ -61,7 +88,7 @@ $("productForm").addEventListener("submit",async e=>{e.preventDefault();try{
   description:asset?"":$("description").value.trim(),
   patrimonyCode:asset?$("patrimonyCode").value.trim():"",
   condition:asset?$("condition").value.trim():"",
-  responsibleSector:asset?$("responsibleSector").value.trim():$("goodsSector").value.trim()
+  responsibleSector:asset?$("assetSector").value:$("productSector").value, sector:asset?$("assetSector").value:$("productSector").value
  };
  await api("/products",{method:"POST",body:JSON.stringify(payload)});
  e.target.reset();$("quantity").value=0;$("assetQuantity").value=1;toggleProductFields();await loadProducts();message("Item cadastrado.");
@@ -106,7 +133,7 @@ async function loadProducts(){try{
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}
-async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reason=prompt("Motivo / observação (opcional):")||"";try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
+async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reasonType=type==="SAIDA"?(prompt("Justificativa: AVARIA, VENDA, CONSUMO, DOACAO ou OUTRO","CONSUMO")||"").toUpperCase():"";const reason=prompt("Detalhes / observação (opcional):")||"";try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason,reasonType})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
 function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set("from",$("fromDate").value);if($("toDate").value)p.set("to",$("toDate").value);return p.toString();}
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
@@ -115,7 +142,7 @@ function renderHistory(){
  const term=($("historySearch").value||"").trim().toLocaleLowerCase("pt-BR");
  const rows=cachedMovements.filter(m=>[m.userName,m.role,m.action,m.productName,m.details,m.sector,m.destination].join(" ").toLocaleLowerCase("pt-BR").includes(term));
  $("historyBody").replaceChildren();
- rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,m.role,m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("historyBody").appendChild(tr);});
+ rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,m.role,m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.createdSector||m.sector||"—",m.sourceSector||"—",m.destinationSector||m.destination||"—",m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("historyBody").appendChild(tr);});
 }
 $("printHistory").addEventListener("click",()=>window.print());
 $("emailForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/movements/email-report",{method:"POST",body:JSON.stringify({email:$("reportEmail").value,from:$("fromDate").value,to:$("toDate").value})});message(d.message);}catch(err){message(err.message,true);}});
@@ -137,7 +164,7 @@ async function loadDeliveries(){
     const type=document.createElement("select");["DEVOLUCAO","CONSUMO","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"].forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;type.appendChild(o);});
     const qty=document.createElement("input");qty.type="number";qty.min="0.001";qty.step="0.001";qty.placeholder="Quantidade";qty.required=true;
     const note=document.createElement("input");note.placeholder="Justificativa / observação";
-    const target=document.createElement("input");target.placeholder="Setor de destino (transferência)";
+    const target=document.createElement("select");const targetBlank=document.createElement("option");targetBlank.value="";targetBlank.textContent="Setor de destino (transferência)";target.appendChild(targetBlank);cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;target.appendChild(o);});
     const add=document.createElement("button");add.textContent="Registrar destino";
     form.append(type,qty,note,target,add);
     form.addEventListener("submit",async ev=>{ev.preventDefault();try{await api("/deliveries/"+d._id+"/account",{method:"POST",body:JSON.stringify({type:type.value,quantity:Number(qty.value),note:note.value,targetSector:target.value})});message("Destino registrado no histórico.");loadDeliveries();}catch(err){message(err.message,true);}});

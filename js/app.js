@@ -18,7 +18,7 @@ async function refreshPendingStatus(){
  catch(err){$("pendingMessage").textContent=err.message;}
 }
 function showLoggedIn(user) {
-  currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
+  currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";

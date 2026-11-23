@@ -22,11 +22,12 @@ function showLoggedIn(user) {
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("usersTab").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  $("usersTab").hidden=!isAdmin; $("companiesTab").hidden=!isSuperAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   $("sectorsTab").hidden=!isAdmin;
   $("deliveryForm").hidden=user.role!=="admin";
   if(isAdmin){loadChatCompanies();loadPendingUsers();}
   if(isSuperAdmin){
+    loadCompaniesList();
     // O administrador geral precisa escolher a empresa antes de consultar dados.
     $("globalCompanySelect")?.closest("label")?.remove();
     loadGlobalCompanySelector();
@@ -71,6 +72,60 @@ $("firstSetupForm").addEventListener("submit", async e => {
     if (submit) submit.disabled = false;
   }
 });
+
+// Mostrar/ocultar senha somente no campo da própria tela; a senha nunca é enviada para outro local.
+document.querySelectorAll("[data-toggle-password]").forEach(button => {
+  button.addEventListener("click", () => {
+    const field = $(button.dataset.togglePassword);
+    if (!field) return;
+    const visible = field.type === "password";
+    field.type = visible ? "text" : "password";
+    button.textContent = visible ? "Ocultar" : "Mostrar";
+    button.setAttribute("aria-label", visible ? "Ocultar senha" : "Mostrar senha");
+    button.setAttribute("aria-pressed", String(visible));
+  });
+});
+
+// O identificador da empresa é sugerido automaticamente a partir do nome.
+$("companyName").addEventListener("input", () => {
+  $("companySlug").value = $("companyName").value.normalize("NFD")
+    .replace(/[\\u0300-\\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+});
+
+$("companyForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    const data = await api("/companies", {
+      method: "POST",
+      body: JSON.stringify({
+        name: $("companyName").value,
+        slug: $("companySlug").value,
+        adminName: $("companyAdminName").value,
+        email: $("companyAdminEmail").value,
+        password: $("companyAdminPassword").value
+      })
+    });
+    e.target.reset();
+    await loadCompaniesList();
+    await loadGlobalCompanySelector();
+    message("Empresa e administrador cadastrados. Setores Estoque e Administração também foram criados.");
+  } catch (err) { message(err.message, true); }
+});
+
+async function loadCompaniesList() {
+  try {
+    const companies = await api("/companies");
+    const box = $("companyList");
+    box.replaceChildren();
+    if (!companies.length) { box.textContent = "Nenhuma empresa cadastrada."; return; }
+    companies.forEach(company => {
+      const item = document.createElement("p");
+      item.textContent = company.name + " (" + company.slug + ") — " + (company.active === false ? "inativa" : "ativa");
+      box.appendChild(item);
+    });
+  } catch (err) { message(err.message, true); }
+}
 
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.

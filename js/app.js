@@ -151,6 +151,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}
+  if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
   if(b.dataset.tab==="chat")loadChatMessages();
   if(b.dataset.tab==="approvals")loadPendingUsers();
 }));
@@ -339,6 +340,47 @@ $("deliveryForm").addEventListener("submit",async e=>{e.preventDefault();try{
  message(isAsset?"Bem atribuído ao setor e histórico atualizado.":"Entrega registrada e estoque baixado.");
  loadProducts();loadDeliveries();
 }catch(err){message(err.message,true);}});
+
+
+// Relatório administrativo de cadastros e diagnóstico de duplicidades.
+let registryCache=[];
+function addCell(row,value){const td=document.createElement("td");td.textContent=value??"";row.appendChild(td);}
+async function loadRegistryReport(){
+ try{
+  const query=currentUser?.role==="superadmin"?"?scope=all":"?scope=company";
+  const data=await api("/database/registry"+query);registryCache=[...(data.companies||[]).map(c=>({...c,type:"Empresa",companyName:c.name})),...(data.records||[])];
+  renderRegistryReport();$("registrySummary").textContent=registryCache.length+" cadastro(s) encontrado(s).";
+ }catch(err){message(err.message,true);}
+}
+function renderRegistryReport(){
+ const term=($("registrySearch").value||"").toLocaleLowerCase("pt-BR"),type=$("registryType").value;
+ const items=registryCache.filter(x=>(!type||x.type===type)&&[x.name,x.email,x.patrimonyCode,x.code,x.companyName,x.role,x.sector].some(v=>String(v||"").toLocaleLowerCase("pt-BR").includes(term)));
+ const box=$("registryRecords");box.replaceChildren();
+ const table=document.createElement("table"),head=document.createElement("thead"),hr=document.createElement("tr");
+ ["Tipo","Cadastro","Empresa","Detalhes","Situação","Criado em"].forEach(v=>{const th=document.createElement("th");th.textContent=v;hr.appendChild(th);});head.appendChild(hr);table.appendChild(head);
+ const body=document.createElement("tbody");
+ items.forEach(x=>{const tr=document.createElement("tr");addCell(tr,x.type);addCell(tr,x.name||x.email||"—");addCell(tr,x.type==="Empresa"?(x.name||"—"):(x.companyName||"—"));addCell(tr,x.type==="Usuário"?[x.email,x.role,x.sector].filter(Boolean).join(" • "):x.type==="Produto / bem"?[x.category,x.patrimonyCode?"Patrimônio: "+x.patrimonyCode:"",x.quantity!==undefined?"Qtd.: "+x.quantity+" "+(x.unit||""):"",x.responsibleSector].filter(Boolean).join(" • "):x.type==="Setor"?"Setor operacional":"Identificador: "+(x.slug||"—"));addCell(tr,x.active===false?"Inativo":(x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"));addCell(tr,x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):"—");body.appendChild(tr);});
+ table.appendChild(body);box.appendChild(table);
+ $("registrySummary").textContent=items.length+" de "+registryCache.length+" cadastro(s) exibido(s).";
+}
+async function loadDiagnostics(){
+ try{
+  const query=currentUser?.role==="superadmin"?"":"";
+  const data=await api("/database/diagnostics"+query),box=$("diagnosticsList");box.replaceChildren();
+  const issues=[];
+  (data.duplicateIndexes||[]).forEach(x=>issues.push("Índice possivelmente global: "+x.name+" ("+JSON.stringify(x.key)+")."));
+  (data.duplicateSectors||[]).forEach(x=>issues.push("Setor duplicado na mesma empresa: "+x.name+" — "+x.count+" registros."));
+  (data.duplicatePatrimony||[]).forEach(x=>issues.push("Patrimônio duplicado: "+x.patrimonyCode+" — "+x.count+" registros."));
+  const summary=document.createElement("p");summary.textContent=issues.length+" possível(is) problema(s) estrutural(is); "+(data.errors||[]).length+" erro(s) E11000 registrado(s).";$("diagnosticsSummary").replaceChildren(summary);
+  issues.forEach(v=>{const p=document.createElement("p");p.className="diagnostic-warning";p.textContent=v;box.appendChild(p);});
+  (data.errors||[]).forEach(x=>{const article=document.createElement("article");article.className="diagnostic-error";const title=document.createElement("strong");title.textContent="Erro MongoDB E"+x.code+" — "+(x.collection||"coleção não identificada");const detail=document.createElement("p");detail.textContent=x.message||"Cadastro duplicado";const meta=document.createElement("small");meta.textContent=[x.index?"Índice: "+x.index:"",x.route?"Rota: "+x.route:"",x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):""].filter(Boolean).join(" • ");article.append(title,detail,meta);box.appendChild(article);});
+  if(!issues.length&&!(data.errors||[]).length){const p=document.createElement("p");p.textContent="Nenhuma duplicidade detectada ou erro E11000 registrado no escopo consultado.";box.appendChild(p);}
+ }catch(err){message(err.message,true);}
+}
+$("registryRefresh").addEventListener("click",loadRegistryReport);
+$("registrySearch").addEventListener("input",renderRegistryReport);
+$("registryType").addEventListener("change",renderRegistryReport);
+$("diagnosticsRefresh").addEventListener("click",loadDiagnostics);
 
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{

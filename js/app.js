@@ -22,7 +22,7 @@ function showLoggedIn(user) {
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin; $("users").hidden=!isAdmin; $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   if(isAdmin){loadChatCompanies();loadPendingUsers();}
@@ -140,7 +140,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history","create","databaseTools"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","databaseTools"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -167,7 +167,8 @@ async function loadGlobalCompanySelector(){
    $("welcome").after(label);
    select.addEventListener("change",()=>{
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
-    if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados.",true);return;}
+    $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
+    if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
     loadSectors();loadProducts();loadHistory();loadDeliveries();
    });
   }

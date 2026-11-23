@@ -151,3 +151,17 @@
   #history thead{display:table-header-group}
   #history{overflow:visible!important}
 }
+
+
+/* Histórico e relatórios: colunas com quebra de linha e impressão integral. */
+#history .table-wrap{width:100%;max-width:100%;overflow-x:auto;overflow-y:visible}
+#history table{width:100%;min-width:1250px;table-layout:auto;border-collapse:collapse}
+#history th,#history td{white-space:normal!important;overflow-wrap:anywhere;word-break:normal;vertical-align:top;min-width:95px;max-width:260px;line-height:1.45}
+#history td:last-child{min-width:240px;max-width:460px}
+#history td:nth-child(8){min-width:130px}
+@media print{
+  #history .table-wrap{overflow:visible!important;width:100%!important}
+  #history table{width:100%!important;min-width:0!important;table-layout:fixed!important;font-size:8pt}
+  #history th,#history td{white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;max-width:none!important;min-width:0!important;padding:4px 3px}
+  #history td:last-child{min-width:0!important;max-width:none!important}
+}

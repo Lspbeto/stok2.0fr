@@ -191,3 +191,5 @@
   font-weight:750;
 }
 .global-company-label select{min-width:min(100%,280px);flex:1;max-width:520px}
+
+.password-field{display:flex;align-items:stretch;gap:6px;width:100%}.password-field input{flex:1;min-width:0}.password-toggle{flex:0 0 auto;padding:9px 12px;background:#65748b;color:#fff;border-radius:7px;font-size:12px}.password-toggle:hover{filter:brightness(.92)}#companies .form-grid .password-field{min-width:0}

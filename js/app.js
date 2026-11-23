@@ -37,6 +37,41 @@ function showLoggedIn(user) {
     loadProducts();
   }
 }
+// Configuração inicial: cria o primeiro administrador geral somente se a API confirmar que não existe um.
+$("firstSetupForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const password = $("firstAdminPassword").value;
+  if (password !== $("firstAdminPasswordConfirm").value) {
+    message("As senhas não conferem.", true);
+    return;
+  }
+  const submit = e.submitter;
+  if (submit) submit.disabled = true;
+  try {
+    const response = await fetch(API + "/auth/setup-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: $("firstAdminName").value,
+        email: $("firstAdminEmail").value,
+        password
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "Não foi possível criar o administrador geral.");
+    token = data.token;
+    localStorage.setItem("stok_token", token);
+    $("firstSetupScreen").hidden = true;
+    e.target.reset();
+    showLoggedIn(data.user);
+    message("Administrador geral criado com sucesso. Agora cadastre as empresas de demonstração.");
+  } catch (err) {
+    message(err.message, true);
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+});
+
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
@@ -342,4 +377,34 @@ $("pendingRefresh").addEventListener("click",refreshPendingStatus);
 $("pendingLogout").addEventListener("click",()=>$("logout").click());
 loadPublicCompanies();
 
-(async()=>{if(!token)return;try{const user=await api("/auth/me");if(user.approvalStatus==="pending"){showPending(user);}else{showLoggedIn(user);}}catch(_){localStorage.removeItem("stok_token");token=null;}})();
+(async()=>{
+  try {
+    const response = await fetch(API + "/auth/setup-status");
+    const status = await response.json();
+    if (response.ok && status.needsSetup) {
+      token = null;
+      localStorage.removeItem("stok_token");
+      $("login").hidden = true;
+      $("registerScreen").hidden = true;
+      $("forgotScreen").hidden = true;
+      $("resetScreen").hidden = true;
+      $("app").hidden = true;
+      $("pendingScreen").hidden = true;
+      $("firstSetupScreen").hidden = false;
+      return;
+    }
+  } catch (err) {
+    message("Não foi possível verificar a configuração inicial. Confira a conexão com a API.", true);
+    return;
+  }
+  $("firstSetupScreen").hidden = true;
+  if (!token) return;
+  try {
+    const user = await api("/auth/me");
+    if (user.approvalStatus === "pending") showPending(user);
+    else showLoggedIn(user);
+  } catch (_) {
+    localStorage.removeItem("stok_token");
+    token = null;
+  }
+})();

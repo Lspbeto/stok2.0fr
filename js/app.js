@@ -198,9 +198,10 @@ async function loadSectors(){
    const previous=el.value;el.replaceChildren();
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
    cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
-   if(cachedSectors.some(s=>s.name===previous))el.value=previous;
+   if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
    else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
-   else if(id==="productSector"||id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
   const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const p=document.createElement("p");p.textContent=s.name+" — ativo";list.appendChild(p);});}
  }catch(err){message(err.message,true);}
@@ -310,7 +311,7 @@ async function loadDeliveries(){
  try{
   const [items,products]=await Promise.all([api("/deliveries"),api("/products")]);
   const select=$("deliveryProduct");select.replaceChildren();
-  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — patrimônio: "+(p.patrimonyCode||"não informado")+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
   const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");
   function updateDeliveryQuantity(){
    const selected=products.find(p=>p._id===deliveryProduct.value),asset=selected?.category==="BEM";

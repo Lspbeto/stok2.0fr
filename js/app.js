@@ -21,11 +21,13 @@ function showLoggedIn(user) {
   currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
-  $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
-  const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
+  const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
+  $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
+  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
-  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+  loadChatCompanies();
+  if(isAdmin){loadPendingUsers();}
   if(isSuperAdmin){
     loadCompaniesList();
     // O administrador geral precisa escolher a empresa antes de consultar dados.
@@ -143,7 +145,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","authorizations"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -157,6 +159,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
   if(b.dataset.tab==="chat")loadChatMessages();
   if(b.dataset.tab==="approvals")loadPendingUsers();
+  if(b.dataset.tab==="authorizations")loadAuthorizations();
 }));
 // O administrador geral escolhe a empresa cujos dados deseja administrar.
 async function loadGlobalCompanySelector(){
@@ -173,7 +176,7 @@ async function loadGlobalCompanySelector(){
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
     $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
     if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
-    loadSectors();loadProducts();loadHistory();loadDeliveries();
+    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();
    });
   }
   select.replaceChildren();
@@ -191,15 +194,17 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 async function loadSectors(){
  try{
   cachedSectors=await api("/sectors");
-  const selects=["productSector","assetSector","deliverySector","userSector"];
+  const selects=["productSector","assetSector","deliverySector","userSector","requestAssetSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
    cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
-   if(cachedSectors.some(s=>s.name===previous))el.value=previous;
+   if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(id==="requestAssetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
    else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
-   else if(id==="productSector"||id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
   const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const p=document.createElement("p");p.textContent=s.name+" — ativo";list.appendChild(p);});}
  }catch(err){message(err.message,true);}
@@ -260,6 +265,7 @@ async function loadProducts(){try{
    ?[p.name,p.patrimonyCode||"—","1",formatDate(p.entryDate),formatDate(p.lastExitDate),formatDate(p.lastSectorExitDate),p.responsibleSector||"—",p.condition||"—"]
    :[p.name,p.code||"—",p.quantity??0,p.unit||"un",formatDate(p.entryDate)];
   values.forEach(v=>{const td=document.createElement("td");td.textContent=v??"—";tr.appendChild(td);});
+  if(asset){const createdBy=document.createElement("td");createdBy.textContent=p.createdByName||"Não informado";tr.appendChild(createdBy);}
   if(!asset){
    const td=document.createElement("td"),info=expiryInfo(p.expiryDate),tag=document.createElement("span");
    tag.className="expiry-alert expiry-"+info.level;tag.textContent=info.text;td.appendChild(tag);tr.appendChild(td);
@@ -272,13 +278,22 @@ async function loadProducts(){try{
   if(!asset){["ENTRADA","SAIDA"].forEach(type=>{
    const b=document.createElement("button");b.textContent=type==="ENTRADA"?"Entrada +":"Saída −";b.className=type==="SAIDA"?"secondary":"";b.style.margin="2px";b.addEventListener("click",()=>stockMove(p,type));actions.appendChild(b);
   });}
-  if(asset&&["admin","superadmin"].includes(currentUser.role)){
-   const transfer=document.createElement("button");transfer.textContent="Transferir setor";transfer.style.margin="2px";
-   transfer.addEventListener("click",async()=>{const sector=prompt("Novo setor responsável pelo bem "+p.name+":",p.responsibleSector||"");if(!sector)return;try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector})});message(d.message);loadProducts();}catch(err){message(err.message,true);}});
-   actions.appendChild(transfer);
-   if(!p.lastExitDate){const exit=document.createElement("button");exit.textContent="Registrar saída";exit.className="secondary";exit.style.margin="2px";exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);}
+  if(asset){
+   const transfer=document.createElement("button");transfer.textContent="Transferir ou devolver";transfer.style.margin="2px";
+   transfer.addEventListener("click",async()=>{
+    const choices=cachedSectors.map(s=>s.name);
+    const suggested=p.responsibleSector==="Estoque"?"":"Estoque";
+    const sector=prompt("Informe o setor de destino do patrimônio "+p.patrimonyCode+". Digite Estoque para devolver. Setores: "+choices.join(", "),suggested);
+    if(!sector)return;
+    try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector:sector.trim()})});message(d.message);await loadProducts();await loadHistory();if(currentUser.role==="operador")await loadAuthorizations();}catch(err){message(err.message,true);}
+   });
+   if(currentUser.role!=="admin_setor")actions.appendChild(transfer);
+   if(["admin","superadmin"].includes(currentUser.role)&&!p.lastExitDate){
+    const exit=document.createElement("button");exit.textContent="Registrar saída definitiva";exit.className="secondary";exit.style.margin="2px";
+    exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);await loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);
+   }
   }
-  const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);tr.appendChild(actions);
+  if(["admin","superadmin"].includes(currentUser.role)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}
@@ -300,7 +315,7 @@ async function loadDeliveries(){
  try{
   const [items,products]=await Promise.all([api("/deliveries"),api("/products")]);
   const select=$("deliveryProduct");select.replaceChildren();
-  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — patrimônio: "+(p.patrimonyCode||"não informado")+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
   const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");
   function updateDeliveryQuantity(){
    const selected=products.find(p=>p._id===deliveryProduct.value),asset=selected?.category==="BEM";
@@ -314,7 +329,7 @@ async function loadDeliveries(){
   items.forEach(d=>{
    const card=document.createElement("article");card.className="panel";
    const title=document.createElement("h3");title.textContent=d.productName+" — "+d.sector;card.appendChild(title);
-   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent="Cadastrado originalmente em: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor para onde foi enviado: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
+   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent=(d.patrimonyCode?"Patrimônio: "+d.patrimonyCode+" | ":"")+"Cadastrado por: "+(d.createdByName||"Não informado")+" | Entregue por: "+(d.userName||"Não informado")+" | Cadastrado originalmente no setor: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor que recebeu: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
    (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" | Ação realizada no setor: "+(e.actionSector||e.sector||d.sector)+" | Origem: "+(e.sourceSector||d.sector)+" | Setor de destino/ocorrência: "+(e.destinationSector||d.sector)+" | "+e.quantity+" "+e.unit+" | "+(e.details||"");card.appendChild(p);});
    if(!d.closed){
     const form=document.createElement("form");form.className="form-grid";
@@ -542,6 +557,10 @@ async function loadChatCompanies(){
   $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
   if(companies.some(x=>x._id===previous))select.value=previous;
   await loadChatMessages();
+  if(!window.stokChatTimer)window.stokChatTimer=window.setInterval(()=>{
+   const chatTab=$("chat");
+   if(currentUser&&chatTab&&!chatTab.hidden)loadChatMessages();
+  },2000);
  }catch(err){message(err.message,true);}
 }
 async function loadChatMessages(){
@@ -551,7 +570,8 @@ async function loadChatMessages(){
   const messages=await api("/chat/messages"+qs),box=$("chatMessages");box.replaceChildren();
   messages.forEach(item=>{
    const article=document.createElement("article");article.className="chat-message";
-   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+(item.senderRole==="superadmin"?"Administrador geral STOK":"Administrador da empresa");
+   const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador da empresa":item.senderRole==="admin_setor"?"Administrador do setor":"Operador";
+   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.message;
    const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR");
    article.append(heading,body,date);box.appendChild(article);
@@ -569,6 +589,55 @@ $("chatForm").addEventListener("submit",async e=>{
   $("chatText").value="";await loadChatMessages();message("Mensagem enviada.");
  }catch(err){message(err.message,true);}
 });
+
+ // Painel central: operadores abrem pedidos; administradores analisam conforme seu alcance.
+ async function loadAuthorizations(){
+  try{
+   const operator=currentUser?.role==="operador";
+   $("authorizationForms").hidden=!operator;
+   if(operator){
+    const products=await api("/products");
+    const assets=products.filter(p=>p.category==="BEM"&&p.responsibleSector===currentUser.sector);
+    const goods=products.filter(p=>p.category==="MERCADORIA");
+    const stock=goods.filter(p=>p.responsibleSector==="Estoque");
+    const own=goods.filter(p=>p.responsibleSector===currentUser.sector);
+    const fill=(id,items,label)=>{const el=$(id),old=el.value;el.replaceChildren();items.forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=label(p);el.appendChild(o);});if(items.some(p=>p._id===old))el.value=old;};
+    fill("requestAsset",assets,p=>p.name+" — patrimônio "+p.patrimonyCode);
+    fill("requestProduct",stock,p=>p.name+" — disponível "+p.quantity+" "+p.unit);
+    fill("adjustProduct",own,p=>p.name+" — registrado "+p.quantity+" "+p.unit);
+    const sector=$("requestAssetSector"),previous=sector.value;sector.replaceChildren();
+    cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sector.appendChild(o);});
+    if(cachedSectors.some(s=>s.name===previous))sector.value=previous;
+    else if(cachedSectors.some(s=>s.name==="Estoque"))sector.value="Estoque";
+   }
+   if(!window.stokAuthorizationTimer)window.stokAuthorizationTimer=window.setInterval(()=>{const tab=$("authorizations");if(currentUser&&tab&&!tab.hidden)loadAuthorizations();},5000);
+  const requests=await api("/authorizations"),box=$("authorizationList");box.replaceChildren();
+   if(!requests.length){box.textContent="Nenhuma solicitação encontrada.";return;}
+   requests.forEach(item=>{
+    const card=document.createElement("article");card.className="panel";
+    const type={MOVIMENTACAO_BEM:"Transferência/devolução de bem",SOLICITACAO_PRODUTO:"Solicitação de produto",ACERTO_ESTOQUE:"Acerto de estoque"}[item.type]||item.type;
+    const status={PENDENTE:"Aguardando análise",APROVADA:"Aprovada",RECUSADA:"Recusada"}[item.status]||item.status;
+    const info=document.createElement("p");info.textContent=type+" — "+status+" | Solicitante: "+item.requesterName+" | Setor: "+item.requesterSector;
+    const details=document.createElement("p");details.textContent=[item.productName,item.patrimonyCode?"Patrimônio: "+item.patrimonyCode:"",item.sourceSector?"Origem: "+item.sourceSector:"",item.destinationSector?"Destino: "+item.destinationSector:"",item.quantity!==null&&item.quantity!==undefined?"Quantidade: "+item.quantity+" "+(item.unit||""):"",item.currentQuantity!==null&&item.currentQuantity!==undefined?"Registrado: "+item.currentQuantity:"",item.countedQuantity!==null&&item.countedQuantity!==undefined?"Encontrado: "+item.countedQuantity:"","Justificativa: "+item.reason,item.decisionNote?"Observação: "+item.decisionNote:""].filter(Boolean).join(" • ");
+    card.append(info,details);
+    if(item.status==="PENDENTE"&&["admin","admin_setor","superadmin"].includes(currentUser.role)){
+     const note=document.createElement("input");note.placeholder="Observação da decisão (opcional)";
+     const approve=document.createElement("button");approve.textContent="Aprovar";approve.addEventListener("click",()=>decideAuthorization(item._id,"APROVADA",note.value));
+     const reject=document.createElement("button");reject.textContent="Recusar";reject.className="danger";reject.addEventListener("click",()=>decideAuthorization(item._id,"RECUSADA",note.value));
+     card.append(note,approve,reject);
+    }
+    box.appendChild(card);
+   });
+  }catch(err){message(err.message,true);}
+ }
+ async function decideAuthorization(id,status,note){
+  try{const d=await api("/authorizations/"+id+"/decision",{method:"PATCH",body:JSON.stringify({status,note})});message(d.message);await loadAuthorizations();await loadProducts();await loadHistory();}
+  catch(err){message(err.message,true);}
+ }
+ $("assetRequestForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/asset",{method:"POST",body:JSON.stringify({productId:$("requestAsset").value,destinationSector:$("requestAssetSector").value,reason:$("requestAssetReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+ $("productRequestForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/product",{method:"POST",body:JSON.stringify({productId:$("requestProduct").value,quantity:Number($("requestProductQuantity").value),reason:$("requestProductReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+ $("stockAdjustmentForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/stock-adjustment",{method:"POST",body:JSON.stringify({productId:$("adjustProduct").value,countedQuantity:Number($("countedQuantity").value),reason:$("adjustReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+
 async function loadPendingUsers(){
  try{
   const users=await api("/users/pending"),box=$("pendingUsers");box.replaceChildren();

@@ -4,7 +4,7 @@ let token = localStorage.getItem("stok_token"), currentUser = null, cachedMoveme
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
-  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
+  const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(currentUser?.role==="superadmin"&&selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
   const data=await response.json().catch(()=>({}));
   if(!response.ok) throw new Error(data.message||"Não foi possível concluir a operação.");
   return data;
@@ -34,8 +34,11 @@ function showLoggedIn(user) {
     $("globalCompanySelect")?.closest("label")?.remove();
     loadGlobalCompanySelector();
   }else{
+    // Administrador da empresa, administrador do setor e operador nunca escolhem empresa.
     selectedCompanyId="";
     localStorage.removeItem("stok_company_id");
+    const companySelector=$("globalCompanyLabel");if(companySelector)companySelector.remove();
+    const chatSelector=$("chatCompany");if(chatSelector){chatSelector.disabled=true;}
     loadSectors();
     loadProducts();
   }
@@ -556,6 +559,7 @@ async function loadChatCompanies(){
   const companies=await api("/chat/companies"),select=$("chatCompany"),previous=select.value;select.replaceChildren();
   companies.forEach(company=>{const o=document.createElement("option");o.value=company._id;o.textContent=company.name;select.appendChild(o);});
   $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
+  $("chatCompany").disabled=currentUser.role!=="superadmin";
   if(companies.some(x=>x._id===previous))select.value=previous;
   await loadChatMessages();
   if(!window.stokChatTimer)window.stokChatTimer=window.setInterval(()=>{

@@ -211,3 +211,17 @@
 .management-meta{grid-column:1/-1;color:var(--muted,#667085);font-size:11px}
 #globalReportDeletedCompanies .management-row,#globalReportDeletedUsers .management-row{grid-template-columns:minmax(220px,1fr) auto}
 @media(max-width:700px){.management-row{grid-template-columns:minmax(0,1fr) auto}.management-actions{grid-column:1/-1;justify-content:flex-start}.management-meta{grid-column:1/-1}}
+
+/* Ações compactas no Histórico e nas ferramentas de Backup/Restauração,
+   seguindo o mesmo padrão visual do Relatório geral. */
+#history .table-wrap td:last-child button,
+#databaseTools .registry-tools .table-wrap td:last-child button,
+#databaseTools #diagnosticsList button{
+  font-size:11px!important;
+  line-height:1.1!important;
+  padding:5px 8px!important;
+  min-height:26px!important;
+  min-width:0!important;
+  margin:2px!important;
+  border-radius:5px!important;
+}

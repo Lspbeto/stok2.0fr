@@ -283,7 +283,7 @@ async function loadProducts(){try{
     const suggested=p.responsibleSector==="Estoque"?"":"Estoque";
     const sector=prompt("Informe o setor de destino do patrimônio "+p.patrimonyCode+". Digite Estoque para devolver. Setores: "+choices.join(", "),suggested);
     if(!sector)return;
-    try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector:sector.trim()})});message(d.message);await loadProducts();await loadHistory();}catch(err){message(err.message,true);}
+    try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector:sector.trim()})});message(d.message);await loadProducts();await loadHistory();if(currentUser.role==="operador")await loadAuthorizations();}catch(err){message(err.message,true);}
    });
    actions.appendChild(transfer);
    if(["admin","superadmin"].includes(currentUser.role)&&!p.lastExitDate){

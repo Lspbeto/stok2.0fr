@@ -199,3 +199,15 @@
 .password-field .password-toggle{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;flex:0 0 44px!important;padding:8px!important;background:#2457d6!important;color:#fff!important;line-height:1!important;}
 .password-field .password-toggle .eye-icon{display:block!important;width:24px!important;height:24px!important;min-width:24px!important;flex:0 0 24px!important;overflow:visible!important;fill:none!important;stroke:#fff!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important;}
 .password-field .password-toggle .eye-icon path,.password-field .password-toggle .eye-icon circle{fill:none!important;stroke:#fff!important;}
+
+/* Relatório geral: colunas legíveis, ações compactas e excluídos separados. */
+.management-list{display:flex;flex-direction:column;gap:8px;margin:10px 0 22px;min-width:0}
+.management-row{display:grid;grid-template-columns:minmax(220px,1fr) auto minmax(190px,auto);align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface,#fff);min-width:0}
+.management-info{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.4;font-size:13px}
+.management-status{font-size:12px;font-weight:700;white-space:nowrap}
+.management-actions{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.management-action{font-size:11px!important;line-height:1.1!important;padding:5px 8px!important;min-height:26px!important;min-width:0!important;border-radius:5px!important}
+.management-action.warning{background:#9a6700;color:#fff}
+.management-meta{grid-column:1/-1;color:var(--muted,#667085);font-size:11px}
+#globalReportDeletedCompanies .management-row,#globalReportDeletedUsers .management-row{grid-template-columns:minmax(220px,1fr) auto}
+@media(max-width:700px){.management-row{grid-template-columns:minmax(0,1fr) auto}.management-actions{grid-column:1/-1;justify-content:flex-start}.management-meta{grid-column:1/-1}}

@@ -23,7 +23,7 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
@@ -118,6 +118,40 @@ $("companyForm").addEventListener("submit", async e => {
   } catch (err) { message(err.message, true); }
 });
 
+let globalReportCache={companies:[],users:[]};
+async function loadGlobalCompaniesUsersReport(){
+ try{
+  if(currentUser?.role!=="superadmin")return;
+  globalReportCache=await api("/users/global-report");
+  renderGlobalCompaniesUsersReport();
+ }catch(err){message(err.message,true);}
+}
+function renderGlobalCompaniesUsersReport(){
+ const data=globalReportCache,query=($("globalReportSearch")?.value||"").trim().toLocaleLowerCase("pt-BR");
+ const companyBox=$("globalReportCompanies"),userBox=$("globalReportUsers"),summary=$("globalReportSummary");
+ if(!companyBox||!userBox)return;companyBox.replaceChildren();userBox.replaceChildren();
+ const companies=(data.companies||[]).filter(x=>(x.name+" "+x.slug).toLocaleLowerCase("pt-BR").includes(query));
+ const users=(data.users||[]).filter(x=>(x.name+" "+x.email+" "+x.role+" "+x.sector+" "+(x.companyId?.name||"")).toLocaleLowerCase("pt-BR").includes(query));
+ summary.textContent="Total: "+data.companies.length+" empresas e "+data.users.length+" usuários. Exibindo: "+companies.length+" empresas e "+users.length+" usuários.";
+ const ch=document.createElement("h3");ch.textContent="Empresas";companyBox.appendChild(ch);
+ companies.forEach(company=>{
+  const row=document.createElement("div");row.className="management-row";
+  const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa");row.appendChild(label);
+  const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadGlobalCompaniesUsersReport();await loadCompaniesList();message("Empresa atualizada.");}catch(err){message(err.message,true);}});row.appendChild(edit);
+  const status=document.createElement("button");status.type="button";status.textContent=company.active===false?"Reativar":"Excluir";status.className=company.active===false?"":"danger";status.addEventListener("click",async()=>{if(!confirm((company.active===false?"Reativar":"Desativar")+" empresa "+company.name+"? A desativação bloqueia os acessos da empresa."))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadGlobalCompaniesUsersReport();await loadCompaniesList();await loadGlobalCompanySelector();message("Situação da empresa atualizada.");}catch(err){message(err.message,true);}});row.appendChild(status);companyBox.appendChild(row);
+ });
+ const uh=document.createElement("h3");uh.textContent="Usuários de todas as empresas";userBox.appendChild(uh);
+ users.forEach(user=>{
+  const row=document.createElement("div");row.className="management-row";
+  const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;
+  const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.companyId?.name||"Empresa não identificada")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
+  const headers={"X-Company-Id":user.companyId?._id||user.companyId};
+  const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;const profile=prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;const sector=prompt("Setor:",user.sector||"");if(sector===null)return;try{await api("/users/"+user._id,{method:"PATCH",headers,body:JSON.stringify({name,email,role:profile,sector})});await loadGlobalCompaniesUsersReport();message("Usuário atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
+  const status=document.createElement("button");status.type="button";status.textContent=user.active===false?"Reativar":"Excluir";status.className=user.active===false?"":"danger";status.addEventListener("click",async()=>{if(!confirm((user.active===false?"Reativar":"Desativar")+" o acesso de "+user.name+"?"))return;try{await api("/users/"+user._id+(user.active===false?"/restore":"/deactivate"),{method:"PATCH",headers});await loadGlobalCompaniesUsersReport();message("Acesso do usuário atualizado.");}catch(err){message(err.message,true);}});row.appendChild(status);userBox.appendChild(row);
+ });
+}
+$("globalReportRefresh")?.addEventListener("click",loadGlobalCompaniesUsersReport);
+$("globalReportSearch")?.addEventListener("input",renderGlobalCompaniesUsersReport);
 async function loadCompaniesList() {
   try {
     const companies = await api("/companies");
@@ -157,6 +191,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="history")loadHistory();
+  if(b.dataset.tab==="globalReport"&&currentUser?.role==="superadmin")loadGlobalCompaniesUsersReport();
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}

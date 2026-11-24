@@ -25,7 +25,8 @@ function showLoggedIn(user) {
   $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
-  loadChatCompanies();\n  if(isAdmin){loadPendingUsers();}
+  loadChatCompanies();
+  if(isAdmin){loadPendingUsers();}
   if(isSuperAdmin){
     loadCompaniesList();
     // O administrador geral precisa escolher a empresa antes de consultar dados.

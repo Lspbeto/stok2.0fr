@@ -128,28 +128,41 @@ async function loadGlobalCompaniesUsersReport(){
 }
 function renderGlobalCompaniesUsersReport(){
  const data=globalReportCache,query=($("globalReportSearch")?.value||"").trim().toLocaleLowerCase("pt-BR");
- const companyBox=$("globalReportCompanies"),userBox=$("globalReportUsers"),summary=$("globalReportSummary");
- if(!companyBox||!userBox)return;companyBox.replaceChildren();userBox.replaceChildren();
+ const companyBox=$("globalReportCompanies"),userBox=$("globalReportUsers"),deletedCompanyBox=$("globalReportDeletedCompanies"),deletedUserBox=$("globalReportDeletedUsers"),summary=$("globalReportSummary");
+ [companyBox,userBox,deletedCompanyBox,deletedUserBox].forEach(box=>box?.replaceChildren());
  const companies=(data.companies||[]).filter(x=>(x.name+" "+x.slug).toLocaleLowerCase("pt-BR").includes(query));
  const users=(data.users||[]).filter(x=>(x.name+" "+x.email+" "+x.role+" "+x.sector+" "+(x.companyId?.name||"")).toLocaleLowerCase("pt-BR").includes(query));
- summary.textContent="Total: "+data.companies.length+" empresas e "+data.users.length+" usuários. Exibindo: "+companies.length+" empresas e "+users.length+" usuários.";
- const ch=document.createElement("h3");ch.textContent="Empresas";companyBox.appendChild(ch);
+ const deletedCompanies=(data.deletedCompanies||[]).filter(x=>(x.name+" "+x.slug).toLocaleLowerCase("pt-BR").includes(query));
+ const deletedUsers=(data.deletedUsers||[]).filter(x=>(x.name+" "+x.email+" "+x.role+" "+x.sector+" "+(x.companyId?.name||"")).toLocaleLowerCase("pt-BR").includes(query));
+ summary.textContent="Empresas: "+companies.length+" | Usuários: "+users.length+" | Excluídos: "+(deletedCompanies.length+deletedUsers.length);
+ const makeRow=(box,parts)=>{const row=document.createElement("div");row.className="management-row";parts.forEach(p=>row.appendChild(p));box.appendChild(row);};
+ const makeBtn=(label,cls,fn)=>{const b=document.createElement("button");b.type="button";b.className="management-action "+(cls||"");b.textContent=label;b.addEventListener("click",fn);return b;};
+ const stamp=d=>d?new Date(d).toLocaleString("pt-BR"):"Data não registrada";
  companies.forEach(company=>{
-  const row=document.createElement("div");row.className="management-row";
-  const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa");row.appendChild(label);
-  const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadGlobalCompaniesUsersReport();await loadCompaniesList();message("Empresa atualizada.");}catch(err){message(err.message,true);}});row.appendChild(edit);
-  const status=document.createElement("button");status.type="button";status.textContent=company.active===false?"Reativar":"Excluir";status.className=company.active===false?"":"danger";status.addEventListener("click",async()=>{if(!confirm((company.active===false?"Reativar":"Desativar")+" empresa "+company.name+"? A desativação bloqueia os acessos da empresa."))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadGlobalCompaniesUsersReport();await loadCompaniesList();await loadGlobalCompanySelector();message("Situação da empresa atualizada.");}catch(err){message(err.message,true);}});row.appendChild(status);companyBox.appendChild(row);
+  const info=document.createElement("div");info.className="management-info";info.textContent=company.name+" ("+company.slug+")";
+  const state=document.createElement("span");state.className="management-status";state.textContent=company.active===false?"Pausada":"Ativa";
+  const actions=document.createElement("div");actions.className="management-actions";
+  actions.append(makeBtn("Editar","",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadGlobalCompaniesUsersReport();message("Empresa atualizada.");}catch(err){message(err.message,true);}}));
+  actions.append(makeBtn(company.active===false?"Retomar":"Pausar",company.active===false?"":"warning",async()=>{if(!confirm((company.active===false?"Retomar":"Pausar")+" a empresa "+company.name+"?"))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadGlobalCompaniesUsersReport();await loadGlobalCompanySelector();message("Situação atualizada.");}catch(err){message(err.message,true);}}));
+  actions.append(makeBtn("Excluir","danger",async()=>{if(!confirm("Excluir "+company.name+"? Ela sairá da lista principal e ficará no relatório de excluídos com data e hora."))return;try{await api("/companies/"+company._id,{method:"DELETE"});await loadGlobalCompaniesUsersReport();await loadGlobalCompanySelector();message("Empresa movida para excluídos.");}catch(err){message(err.message,true);}}));
+  const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Criada em: "+stamp(company.createdAt);
+  makeRow(companyBox,[info,state,actions,meta]);
  });
- const uh=document.createElement("h3");uh.textContent="Usuários de todas as empresas";userBox.appendChild(uh);
  users.forEach(user=>{
-  const row=document.createElement("div");row.className="management-row";
   const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;
-  const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.companyId?.name||"Empresa não identificada")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
-  const headers={"X-Company-Id":user.companyId?._id||user.companyId};
-  const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;const profile=prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;const sector=prompt("Setor:",user.sector||"");if(sector===null)return;try{await api("/users/"+user._id,{method:"PATCH",headers,body:JSON.stringify({name,email,role:profile,sector})});await loadGlobalCompaniesUsersReport();message("Usuário atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
-  const status=document.createElement("button");status.type="button";status.textContent=user.active===false?"Reativar":"Excluir";status.className=user.active===false?"":"danger";status.addEventListener("click",async()=>{if(!confirm((user.active===false?"Reativar":"Desativar")+" o acesso de "+user.name+"?"))return;try{await api("/users/"+user._id+(user.active===false?"/restore":"/deactivate"),{method:"PATCH",headers});await loadGlobalCompaniesUsersReport();message("Acesso do usuário atualizado.");}catch(err){message(err.message,true);}});row.appendChild(status);userBox.appendChild(row);
+  const info=document.createElement("div");info.className="management-info";info.textContent=user.name+" | "+user.email+" | "+role+" | "+(user.sector||"Sem setor")+" | "+(user.companyId?.name||"Empresa não identificada");
+  const state=document.createElement("span");state.className="management-status";state.textContent=user.active===false?"Pausado":"Ativo";
+  const actions=document.createElement("div");actions.className="management-actions";const headers={"X-Company-Id":user.companyId?._id||user.companyId};
+  actions.append(makeBtn("Editar","",async()=>{const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;const profile=prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;const sector=prompt("Setor:",user.sector||"");if(sector===null)return;try{await api("/users/"+user._id,{method:"PATCH",headers,body:JSON.stringify({name,email,role:profile,sector})});await loadGlobalCompaniesUsersReport();message("Usuário atualizado.");}catch(err){message(err.message,true);}}));
+  actions.append(makeBtn(user.active===false?"Retomar":"Pausar",user.active===false?"":"warning",async()=>{if(!confirm((user.active===false?"Retomar":"Pausar")+" o acesso de "+user.name+"?"))return;try{await api("/users/"+user._id+(user.active===false?"/restore":"/deactivate"),{method:"PATCH",headers});await loadGlobalCompaniesUsersReport();message("Acesso atualizado.");}catch(err){message(err.message,true);}}));
+  actions.append(makeBtn("Excluir","danger",async()=>{if(!confirm("Excluir "+user.name+"? Ele sairá da lista e ficará no relatório de excluídos com data e hora."))return;try{await api("/users/"+user._id,{method:"DELETE",headers});await loadGlobalCompaniesUsersReport();message("Usuário movido para excluídos.");}catch(err){message(err.message,true);}}));
+  const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Criado em: "+stamp(user.createdAt);
+  makeRow(userBox,[info,state,actions,meta]);
  });
+ deletedCompanies.forEach(company=>{const info=document.createElement("div");info.className="management-info";info.textContent="EMPRESA: "+company.name+" ("+company.slug+")";const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluída em: "+stamp(company.deletedAt);makeRow(deletedCompanyBox,[info,meta]);});
+ deletedUsers.forEach(user=>{const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;const info=document.createElement("div");info.className="management-info";info.textContent="USUÁRIO: "+user.name+" | "+user.email+" | "+role+" | "+(user.companyId?.name||"Empresa não identificada");const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluído em: "+stamp(user.deletedAt);makeRow(deletedUserBox,[info,meta]);});
 }
+
 $("globalReportRefresh")?.addEventListener("click",loadGlobalCompaniesUsersReport);
 $("globalReportSearch")?.addEventListener("input",renderGlobalCompaniesUsersReport);
 async function loadCompaniesList() {

@@ -1,6 +1,6 @@
 // Interface do STOK: estoque, entregas, usuários, histórico e relatórios.
 const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
-let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
+let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedUsersReport = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
@@ -383,10 +383,30 @@ async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="EN
 function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set("from",$("fromDate").value);if($("toDate").value)p.set("to",$("toDate").value);return p.toString();}
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
-async function loadHistory(){try{cachedMovements=await api("/movements?"+dateParams()+(currentUser?.role==="superadmin"?"&includeDeleted=true":""));renderHistory();}catch(err){message(err.message,true);}}
+$("reportType").addEventListener("change",loadHistory);
+async function loadHistory(){try{
+ const type=$("reportType")?.value||"both";
+ const jobs=[];
+ if(type!=="users")jobs.push(api("/movements?"+dateParams()+(currentUser?.role==="superadmin"?"&includeDeleted=true":"")).then(v=>{cachedMovements=v;}));
+ else cachedMovements=[];
+ if(type!=="movements")jobs.push(api("/users").then(v=>{cachedUsersReport=v;}));
+ else cachedUsersReport=[];
+ await Promise.all(jobs);renderHistory();
+ }catch(err){message(err.message,true);}}
 function historyRoleLabel(role){return ({admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador",superadmin:"Administrador geral STOK"})[role]||role||"Não informado";}
 function renderHistory(){
+ const type=$("reportType")?.value||"both";
+ $("usersReportSection").hidden=type==="movements";
+ $("movementsReportSection").hidden=type==="users";
+ $("emailForm").hidden=type==="users";
  const term=($("historySearch").value||"").trim().toLocaleLowerCase("pt-BR");
+ const userRows=cachedUsersReport.filter(u=>[u.name,u.email,historyRoleLabel(u.role),u.sector,u.active===false?"inativo":"ativo"].join(" ").toLocaleLowerCase("pt-BR").includes(term));
+ $("usersReportBody").replaceChildren();
+ userRows.forEach(u=>{const tr=document.createElement("tr");[
+  u.name,u.email,historyRoleLabel(u.role),u.sector||"—",
+  u.active===false?"Inativo":(u.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"),
+  u.createdAt?new Date(u.createdAt).toLocaleString("pt-BR"):"—"
+ ].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("usersReportBody").appendChild(tr);});
  const rows=cachedMovements.filter(m=>[m.userName,historyRoleLabel(m.role),m.action,m.productName,m.details,m.sector,m.createdSector,m.sourceSector,m.destinationSector,m.destination].join(" ").toLocaleLowerCase("pt-BR").includes(term));
  $("historyBody").replaceChildren();
  rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,historyRoleLabel(m.role),m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.createdSector||"—",m.actionSector||m.sector||"—",m.sourceSector||"—",m.destinationSector||m.destination||"—",m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});

@@ -22,8 +22,8 @@ function showLoggedIn(user) {
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
-  const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
+  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();}
@@ -158,6 +158,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
   if(b.dataset.tab==="chat")loadChatMessages();
   if(b.dataset.tab==="approvals")loadPendingUsers();
+  if(b.dataset.tab==="authorizations")loadAuthorizations();
 }));
 // O administrador geral escolhe a empresa cujos dados deseja administrar.
 async function loadGlobalCompanySelector(){
@@ -192,13 +193,14 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 async function loadSectors(){
  try{
   cachedSectors=await api("/sectors");
-  const selects=["productSector","assetSector","deliverySector","userSector"];
+  const selects=["productSector","assetSector","deliverySector","userSector","requestAssetSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
    cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
    if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(id==="requestAssetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
    else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
    else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
@@ -585,6 +587,54 @@ $("chatForm").addEventListener("submit",async e=>{
   $("chatText").value="";await loadChatMessages();message("Mensagem enviada.");
  }catch(err){message(err.message,true);}
 });
+
+ // Painel central: operadores abrem pedidos; administradores analisam conforme seu alcance.
+ async function loadAuthorizations(){
+  try{
+   const operator=currentUser?.role==="operador";
+   $("authorizationForms").hidden=!operator;
+   if(operator){
+    const products=await api("/products");
+    const assets=products.filter(p=>p.category==="BEM"&&p.responsibleSector===currentUser.sector);
+    const goods=products.filter(p=>p.category==="MERCADORIA");
+    const stock=goods.filter(p=>p.responsibleSector==="Estoque");
+    const own=goods.filter(p=>p.responsibleSector===currentUser.sector);
+    const fill=(id,items,label)=>{const el=$(id),old=el.value;el.replaceChildren();items.forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=label(p);el.appendChild(o);});if(items.some(p=>p._id===old))el.value=old;};
+    fill("requestAsset",assets,p=>p.name+" — patrimônio "+p.patrimonyCode);
+    fill("requestProduct",stock,p=>p.name+" — disponível "+p.quantity+" "+p.unit);
+    fill("adjustProduct",own,p=>p.name+" — registrado "+p.quantity+" "+p.unit);
+    const sector=$("requestAssetSector"),previous=sector.value;sector.replaceChildren();
+    cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sector.appendChild(o);});
+    if(cachedSectors.some(s=>s.name===previous))sector.value=previous;
+    else if(cachedSectors.some(s=>s.name==="Estoque"))sector.value="Estoque";
+   }
+   const requests=await api("/authorizations"),box=$("authorizationList");box.replaceChildren();
+   if(!requests.length){box.textContent="Nenhuma solicitação encontrada.";return;}
+   requests.forEach(item=>{
+    const card=document.createElement("article");card.className="panel";
+    const type={MOVIMENTACAO_BEM:"Transferência/devolução de bem",SOLICITACAO_PRODUTO:"Solicitação de produto",ACERTO_ESTOQUE:"Acerto de estoque"}[item.type]||item.type;
+    const status={PENDENTE:"Aguardando análise",APROVADA:"Aprovada",RECUSADA:"Recusada"}[item.status]||item.status;
+    const info=document.createElement("p");info.textContent=type+" — "+status+" | Solicitante: "+item.requesterName+" | Setor: "+item.requesterSector;
+    const details=document.createElement("p");details.textContent=[item.productName,item.patrimonyCode?"Patrimônio: "+item.patrimonyCode:"",item.sourceSector?"Origem: "+item.sourceSector:"",item.destinationSector?"Destino: "+item.destinationSector:"",item.quantity!==null&&item.quantity!==undefined?"Quantidade: "+item.quantity+" "+(item.unit||""):"",item.currentQuantity!==null&&item.currentQuantity!==undefined?"Registrado: "+item.currentQuantity:"",item.countedQuantity!==null&&item.countedQuantity!==undefined?"Encontrado: "+item.countedQuantity:"","Justificativa: "+item.reason,item.decisionNote?"Observação: "+item.decisionNote:""].filter(Boolean).join(" • ");
+    card.append(info,details);
+    if(item.status==="PENDENTE"&&["admin","admin_setor","superadmin"].includes(currentUser.role)){
+     const note=document.createElement("input");note.placeholder="Observação da decisão (opcional)";
+     const approve=document.createElement("button");approve.textContent="Aprovar";approve.addEventListener("click",()=>decideAuthorization(item._id,"APROVADA",note.value));
+     const reject=document.createElement("button");reject.textContent="Recusar";reject.className="danger";reject.addEventListener("click",()=>decideAuthorization(item._id,"RECUSADA",note.value));
+     card.append(note,approve,reject);
+    }
+    box.appendChild(card);
+   });
+  }catch(err){message(err.message,true);}
+ }
+ async function decideAuthorization(id,status,note){
+  try{const d=await api("/authorizations/"+id+"/decision",{method:"PATCH",body:JSON.stringify({status,note})});message(d.message);await loadAuthorizations();await loadProducts();await loadHistory();}
+  catch(err){message(err.message,true);}
+ }
+ $("assetRequestForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/asset",{method:"POST",body:JSON.stringify({productId:$("requestAsset").value,destinationSector:$("requestAssetSector").value,reason:$("requestAssetReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+ $("productRequestForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/product",{method:"POST",body:JSON.stringify({productId:$("requestProduct").value,quantity:Number($("requestProductQuantity").value),reason:$("requestProductReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+ $("stockAdjustmentForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/stock-adjustment",{method:"POST",body:JSON.stringify({productId:$("adjustProduct").value,countedQuantity:Number($("countedQuantity").value),reason:$("adjustReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});
+
 async function loadPendingUsers(){
  try{
   const users=await api("/users/pending"),box=$("pendingUsers");box.replaceChildren();

@@ -263,7 +263,8 @@ async function loadProducts(){try{
   const values=asset
    ?[p.name,p.patrimonyCode||"—","1",formatDate(p.entryDate),formatDate(p.lastExitDate),formatDate(p.lastSectorExitDate),p.responsibleSector||"—",p.condition||"—"]
    :[p.name,p.code||"—",p.quantity??0,p.unit||"un",formatDate(p.entryDate)];
-  values.forEach(v=>{const td=document.createElement("td");td.textContent=v??"—";tr.appendChild(td);});\n  if(asset){const createdBy=document.createElement("td");createdBy.textContent=p.createdByName||"Não informado";tr.appendChild(createdBy);}
+  values.forEach(v=>{const td=document.createElement("td");td.textContent=v??"—";tr.appendChild(td);});
+  if(asset){const createdBy=document.createElement("td");createdBy.textContent=p.createdByName||"Não informado";tr.appendChild(createdBy);}
   if(!asset){
    const td=document.createElement("td"),info=expiryInfo(p.expiryDate),tag=document.createElement("span");
    tag.className="expiry-alert expiry-"+info.level;tag.textContent=info.text;td.appendChild(tag);tr.appendChild(td);
@@ -568,7 +569,7 @@ async function loadChatMessages(){
   const messages=await api("/chat/messages"+qs),box=$("chatMessages");box.replaceChildren();
   messages.forEach(item=>{
    const article=document.createElement("article");article.className="chat-message";
-   const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador":"Operador";
+   const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador da empresa":item.senderRole==="admin_setor"?"Administrador do setor":"Operador";
    const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.message;
    const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR");

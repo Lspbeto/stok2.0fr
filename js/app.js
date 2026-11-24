@@ -197,22 +197,23 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 // Carrega setores oficiais e preenche os campos de seleção da interface.
 async function loadSectors(){
  try{
-  cachedSectors=await api("/sectors");
+  cachedSectors=await api("/sectors"+(currentUser?.role==="superadmin"?"?includeInactive=true":""));
   const selects=["productSector","assetSector","deliverySector","userSector","requestAssetSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
-   cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
+   cachedSectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
    if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
    else if(id==="requestAssetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
    else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
-   else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
+   else if(["operador","admin_setor"].includes(currentUser?.role)&&cachedSectors.some(s=>s.name===currentUser.sector&&s.active!==false)){el.value=currentUser.sector;el.disabled=true;}
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
-  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const row=document.createElement("div");row.className="management-row";const label=document.createElement("span");label.textContent=s.name+" — ativo";row.appendChild(label);
-   if(currentUser?.role==="superadmin"){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
+  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const row=document.createElement("div");row.className="management-row";const label=document.createElement("span");label.textContent=s.name+" — "+(s.active===false?"inativo":"ativo");row.appendChild(label);
+   if(currentUser?.role==="superadmin"&&s.active!==false){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
    const del=document.createElement("button");del.type="button";del.textContent="Excluir";del.className="danger";del.addEventListener("click",async()=>{if(!confirm("Desativar o setor "+s.name+"? Só será possível se não houver usuários ativos vinculados."))return;try{await api("/sectors/"+s._id+"/deactivate",{method:"PATCH"});await loadSectors();message("Setor desativado.");}catch(err){message(err.message,true);}});row.appendChild(del);}
+   if(currentUser?.role==="superadmin"&&s.active===false){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{try{await api("/sectors/"+s._id+"/restore",{method:"PATCH"});await loadSectors();message("Setor restaurado.");}catch(err){message(err.message,true);}});row.appendChild(restore);}
    list.appendChild(row);});}
    if(currentUser?.role==="superadmin")loadUsersList();
  }catch(err){message(err.message,true);}
@@ -266,8 +267,9 @@ function expiryInfo(date){
  return {text:d.toLocaleDateString("pt-BR"),level:"ok"};
 }
 async function loadProducts(){try{
- const items=await api("/products");$("goodsBody").replaceChildren();$("assetsBody").replaceChildren();
+ const items=await api("/products"+(currentUser?.role==="superadmin"?"?includeInactive=true":""));$("goodsBody").replaceChildren();$("assetsBody").replaceChildren();
  items.forEach(p=>{
+  const isInactive=p.active===false;
   const asset=p.category==="BEM",tr=document.createElement("tr");
   const values=asset
    ?[p.name,p.patrimonyCode||"—","1",formatDate(p.entryDate),formatDate(p.lastExitDate),formatDate(p.lastSectorExitDate),p.responsibleSector||"—",p.condition||"—"]
@@ -283,10 +285,10 @@ async function loadProducts(){try{
    const obs=document.createElement("td");obs.textContent=p.description||"—";tr.appendChild(obs);
   }
   const actions=document.createElement("td");
-  if(!asset){["ENTRADA","SAIDA"].forEach(type=>{
+  if(!isInactive&&!asset){["ENTRADA","SAIDA"].forEach(type=>{
    const b=document.createElement("button");b.textContent=type==="ENTRADA"?"Entrada +":"Saída −";b.className=type==="SAIDA"?"secondary":"";b.style.margin="2px";b.addEventListener("click",()=>stockMove(p,type));actions.appendChild(b);
   });}
-  if(asset){
+  if(!isInactive&&asset){
    const transfer=document.createElement("button");transfer.textContent="Transferir ou devolver";transfer.style.margin="2px";
    transfer.addEventListener("click",async()=>{
     const choices=cachedSectors.map(s=>s.name);
@@ -301,7 +303,7 @@ async function loadProducts(){try{
     exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);await loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);
    }
   }
-  if(currentUser.role==="superadmin"){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.style.margin="2px";edit.addEventListener("click",async()=>{
+  if(currentUser.role==="superadmin"&&!isInactive){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.style.margin="2px";edit.addEventListener("click",async()=>{
    const name=prompt("Nome do produto/bem:",p.name);if(name===null)return;
    const sector=prompt("Setor responsável:",p.responsibleSector||"");if(sector===null)return;
    const description=prompt("Descrição / observações:",p.description||"");if(description===null)return;
@@ -310,7 +312,8 @@ async function loadProducts(){try{
    else{const condition=prompt("Estado de conservação:",p.condition||"");if(condition===null)return;payload.condition=condition;const code=prompt("Número de patrimônio:",p.patrimonyCode||"");if(code===null)return;payload.patrimonyCode=code;}
    try{await api("/products/"+p._id,{method:"PUT",body:JSON.stringify(payload)});await loadProducts();message("Cadastro atualizado.");}catch(err){message(err.message,true);}
   });actions.appendChild(edit);}
-  if(["admin","superadmin"].includes(currentUser.role)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
+  if(currentUser.role==="superadmin"&&isInactive){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{if(!confirm("Restaurar "+p.name+"?"))return;try{await api("/products/"+p._id+"/restore",{method:"PATCH"});await loadProducts();message("Produto restaurado.");}catch(err){message(err.message,true);}});actions.appendChild(restore);}
+  if(!isInactive&&["admin","superadmin"].includes(currentUser.role)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}

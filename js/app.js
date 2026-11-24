@@ -144,7 +144,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","authorizations"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -175,7 +175,7 @@ async function loadGlobalCompanySelector(){
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
     $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
     if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
-    loadSectors();loadProducts();loadHistory();loadDeliveries();
+    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();
    });
   }
   select.replaceChildren();
@@ -609,7 +609,8 @@ $("chatForm").addEventListener("submit",async e=>{
     if(cachedSectors.some(s=>s.name===previous))sector.value=previous;
     else if(cachedSectors.some(s=>s.name==="Estoque"))sector.value="Estoque";
    }
-   const requests=await api("/authorizations"),box=$("authorizationList");box.replaceChildren();
+   if(!window.stokAuthorizationTimer)window.stokAuthorizationTimer=window.setInterval(()=>{const tab=$("authorizations");if(currentUser&&tab&&!tab.hidden)loadAuthorizations();},5000);
+  const requests=await api("/authorizations"),box=$("authorizationList");box.replaceChildren();
    if(!requests.length){box.textContent="Nenhuma solicitação encontrada.";return;}
    requests.forEach(item=>{
     const card=document.createElement("article");card.className="panel";

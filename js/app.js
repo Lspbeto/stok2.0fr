@@ -22,7 +22,7 @@ function showLoggedIn(user) {
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=isSuperAdmin&&!selectedCompanyId; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();\n  if(isAdmin){loadPendingUsers();}
@@ -272,11 +272,20 @@ async function loadProducts(){try{
   if(!asset){["ENTRADA","SAIDA"].forEach(type=>{
    const b=document.createElement("button");b.textContent=type==="ENTRADA"?"Entrada +":"Saída −";b.className=type==="SAIDA"?"secondary":"";b.style.margin="2px";b.addEventListener("click",()=>stockMove(p,type));actions.appendChild(b);
   });}
-  if(asset&&["admin","superadmin"].includes(currentUser.role)){
-   const transfer=document.createElement("button");transfer.textContent="Transferir setor";transfer.style.margin="2px";
-   transfer.addEventListener("click",async()=>{const sector=prompt("Novo setor responsável pelo bem "+p.name+":",p.responsibleSector||"");if(!sector)return;try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector})});message(d.message);loadProducts();}catch(err){message(err.message,true);}});
+  if(asset){
+   const transfer=document.createElement("button");transfer.textContent="Transferir ou devolver";transfer.style.margin="2px";
+   transfer.addEventListener("click",async()=>{
+    const choices=cachedSectors.map(s=>s.name);
+    const suggested=p.responsibleSector==="Estoque"?"":"Estoque";
+    const sector=prompt("Informe o setor de destino do patrimônio "+p.patrimonyCode+". Digite Estoque para devolver. Setores: "+choices.join(", "),suggested);
+    if(!sector)return;
+    try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector:sector.trim()})});message(d.message);await loadProducts();await loadHistory();}catch(err){message(err.message,true);}
+   });
    actions.appendChild(transfer);
-   if(!p.lastExitDate){const exit=document.createElement("button");exit.textContent="Registrar saída";exit.className="secondary";exit.style.margin="2px";exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);}
+   if(["admin","superadmin"].includes(currentUser.role)&&!p.lastExitDate){
+    const exit=document.createElement("button");exit.textContent="Registrar saída definitiva";exit.className="secondary";exit.style.margin="2px";
+    exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);await loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);
+   }
   }
   const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);tr.appendChild(actions);
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);

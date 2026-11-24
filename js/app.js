@@ -22,10 +22,10 @@ function showLoggedIn(user) {
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   $("welcome").textContent="Olá, "+user.name+" ("+(isSuperAdmin?"Administrador geral STOK":user.role)+")";
-  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=!isAdmin; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=isSuperAdmin&&!selectedCompanyId; $("approvalsTab").hidden=!isAdmin; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; if(!isSuperAdmin)$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
-  if(isAdmin){loadChatCompanies();loadPendingUsers();}
+  loadChatCompanies();\n  if(isAdmin){loadPendingUsers();}
   if(isSuperAdmin){
     loadCompaniesList();
     // O administrador geral precisa escolher a empresa antes de consultar dados.
@@ -259,7 +259,7 @@ async function loadProducts(){try{
   const values=asset
    ?[p.name,p.patrimonyCode||"—","1",formatDate(p.entryDate),formatDate(p.lastExitDate),formatDate(p.lastSectorExitDate),p.responsibleSector||"—",p.condition||"—"]
    :[p.name,p.code||"—",p.quantity??0,p.unit||"un",formatDate(p.entryDate)];
-  values.forEach(v=>{const td=document.createElement("td");td.textContent=v??"—";tr.appendChild(td);});
+  values.forEach(v=>{const td=document.createElement("td");td.textContent=v??"—";tr.appendChild(td);});\n  if(asset){const createdBy=document.createElement("td");createdBy.textContent=p.createdByName||"Não informado";tr.appendChild(createdBy);}
   if(!asset){
    const td=document.createElement("td"),info=expiryInfo(p.expiryDate),tag=document.createElement("span");
    tag.className="expiry-alert expiry-"+info.level;tag.textContent=info.text;td.appendChild(tag);tr.appendChild(td);
@@ -542,6 +542,10 @@ async function loadChatCompanies(){
   $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
   if(companies.some(x=>x._id===previous))select.value=previous;
   await loadChatMessages();
+  if(!window.stokChatTimer)window.stokChatTimer=window.setInterval(()=>{
+   const chatTab=$("chat");
+   if(currentUser&&chatTab&&!chatTab.hidden)loadChatMessages();
+  },5000);
  }catch(err){message(err.message,true);}
 }
 async function loadChatMessages(){
@@ -551,7 +555,8 @@ async function loadChatMessages(){
   const messages=await api("/chat/messages"+qs),box=$("chatMessages");box.replaceChildren();
   messages.forEach(item=>{
    const article=document.createElement("article");article.className="chat-message";
-   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+(item.senderRole==="superadmin"?"Administrador geral STOK":"Administrador da empresa");
+   const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador":"Operador";
+   const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.message;
    const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR");
    article.append(heading,body,date);box.appendChild(article);

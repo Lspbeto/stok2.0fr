@@ -558,7 +558,7 @@ async function loadChatCompanies(){
   if(!window.stokChatTimer)window.stokChatTimer=window.setInterval(()=>{
    const chatTab=$("chat");
    if(currentUser&&chatTab&&!chatTab.hidden)loadChatMessages();
-  },5000);
+  },2000);
  }catch(err){message(err.message,true);}
 }
 async function loadChatMessages(){

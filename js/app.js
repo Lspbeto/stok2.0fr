@@ -125,9 +125,10 @@ async function loadCompaniesList() {
     box.replaceChildren();
     if (!companies.length) { box.textContent = "Nenhuma empresa cadastrada."; return; }
     companies.forEach(company => {
-      const item = document.createElement("p");
-      item.textContent = company.name + " (" + company.slug + ") — " + (company.active === false ? "inativa" : "ativa");
-      box.appendChild(item);
+      const item=document.createElement("div");item.className="management-row";
+      const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa");item.appendChild(label);
+      const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadCompaniesList();message("Empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(edit);
+      const action=document.createElement("button");action.type="button";action.textContent=company.active===false?"Reativar":"Excluir";action.className=company.active===false?"":"danger";action.addEventListener("click",async()=>{if(!confirm((company.active===false?"Reativar":"Desativar")+" a empresa "+company.name+"?"))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadCompaniesList();await loadGlobalCompanySelector();message("Situação da empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(action);box.appendChild(item);
     });
   } catch (err) { message(err.message, true); }
 }
@@ -179,7 +180,7 @@ async function loadGlobalCompanySelector(){
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
     $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
     if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
-    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();
+    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();
    });
   }
   select.replaceChildren();
@@ -209,7 +210,11 @@ async function loadSectors(){
    else if(currentUser?.role==="operador"&&cachedSectors.some(s=>s.name===currentUser.sector))el.value=currentUser.sector;
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
-  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const p=document.createElement("p");p.textContent=s.name+" — ativo";list.appendChild(p);});}
+  const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const row=document.createElement("div");row.className="management-row";const label=document.createElement("span");label.textContent=s.name+" — ativo";row.appendChild(label);
+   if(currentUser?.role==="superadmin"){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
+   const del=document.createElement("button");del.type="button";del.textContent="Excluir";del.className="danger";del.addEventListener("click",async()=>{if(!confirm("Desativar o setor "+s.name+"? Só será possível se não houver usuários ativos vinculados."))return;try{await api("/sectors/"+s._id+"/deactivate",{method:"PATCH"});await loadSectors();message("Setor desativado.");}catch(err){message(err.message,true);}});row.appendChild(del);}
+   list.appendChild(row);});}
+   if(currentUser?.role==="superadmin")loadUsersList();
  }catch(err){message(err.message,true);}
 }
 $("sectorForm").addEventListener("submit",async e=>{
@@ -296,6 +301,15 @@ async function loadProducts(){try{
     exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);await loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);
    }
   }
+  if(currentUser.role==="superadmin"){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.style.margin="2px";edit.addEventListener("click",async()=>{
+   const name=prompt("Nome do produto/bem:",p.name);if(name===null)return;
+   const sector=prompt("Setor responsável:",p.responsibleSector||"");if(sector===null)return;
+   const description=prompt("Descrição / observações:",p.description||"");if(description===null)return;
+   const payload={name,responsibleSector:sector,sector,description};
+   if(!asset){const qty=prompt("Quantidade atual:",String(p.quantity??0));if(qty===null)return;payload.quantity=Number(qty);const unit=prompt("Unidade:",p.unit||"un");if(unit===null)return;payload.unit=unit;const code=prompt("Código:",p.code||"");if(code===null)return;payload.code=code;const expiry=prompt("Validade (AAAA-MM-DD, vazio se não houver):",p.expiryDate?String(p.expiryDate).slice(0,10):"");if(expiry===null)return;payload.expiryDate=expiry||null;}
+   else{const condition=prompt("Estado de conservação:",p.condition||"");if(condition===null)return;payload.condition=condition;const code=prompt("Número de patrimônio:",p.patrimonyCode||"");if(code===null)return;payload.patrimonyCode=code;}
+   try{await api("/products/"+p._id,{method:"PUT",body:JSON.stringify(payload)});await loadProducts();message("Cadastro atualizado.");}catch(err){message(err.message,true);}
+  });actions.appendChild(edit);}
   if(["admin","superadmin"].includes(currentUser.role)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
@@ -304,13 +318,17 @@ async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="EN
 function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set("from",$("fromDate").value);if($("toDate").value)p.set("to",$("toDate").value);return p.toString();}
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
-async function loadHistory(){try{cachedMovements=await api("/movements?"+dateParams());renderHistory();}catch(err){message(err.message,true);}}
+async function loadHistory(){try{cachedMovements=await api("/movements?"+dateParams()+(currentUser?.role==="superadmin"?"&includeDeleted=true":""));renderHistory();}catch(err){message(err.message,true);}}
 function historyRoleLabel(role){return ({admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador",superadmin:"Administrador geral STOK"})[role]||role||"Não informado";}
 function renderHistory(){
  const term=($("historySearch").value||"").trim().toLocaleLowerCase("pt-BR");
  const rows=cachedMovements.filter(m=>[m.userName,historyRoleLabel(m.role),m.action,m.productName,m.details,m.sector,m.createdSector,m.sourceSector,m.destinationSector,m.destination].join(" ").toLocaleLowerCase("pt-BR").includes(term));
  $("historyBody").replaceChildren();
- rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,historyRoleLabel(m.role),m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.createdSector||"—",m.actionSector||m.sector||"—",m.sourceSector||"—",m.destinationSector||m.destination||"—",m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});$("historyBody").appendChild(tr);});
+ rows.forEach(m=>{const tr=document.createElement("tr");[new Date(m.createdAt).toLocaleString("pt-BR"),m.userName,historyRoleLabel(m.role),m.action,m.productName,(m.quantity??"")+(m.unit?" "+m.unit:""),m.createdSector||"—",m.actionSector||m.sector||"—",m.sourceSector||"—",m.destinationSector||m.destination||"—",m.details].forEach(v=>{const td=document.createElement("td");td.textContent=v??"";tr.appendChild(td);});
+  const actions=document.createElement("td");if(currentUser?.role==="superadmin"){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const details=prompt("Corrigir detalhes do histórico:",m.details||"");if(details===null)return;const action=prompt("Ação:",m.action||"");if(action===null)return;const quantity=prompt("Quantidade:",m.quantity??"");if(quantity===null)return;try{await api("/movements/"+m._id,{method:"PATCH",body:JSON.stringify({details,action,...(quantity.trim()!==""?{quantity:Number(quantity)}:{})})});await loadHistory();message("Histórico corrigido e auditado.");}catch(err){message(err.message,true);}});
+   const del=document.createElement("button");del.type="button";del.textContent=m.isDeleted?"Excluído":"Excluir";del.disabled=!!m.isDeleted;del.className="danger";del.addEventListener("click",async()=>{if(!confirm("Ocultar esta movimentação do histórico comum? O registro original será preservado para auditoria."))return;try{await api("/movements/"+m._id,{method:"DELETE"});await loadHistory();message("Movimentação excluída da visualização comum.");}catch(err){message(err.message,true);}});
+   actions.append(edit,del);if(m.isDeleted){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{try{await api("/movements/"+m._id+"/restore",{method:"PATCH"});await loadHistory();message("Movimentação restaurada.");}catch(err){message(err.message,true);}});actions.appendChild(restore);}}
+  tr.appendChild(actions);$("historyBody").appendChild(tr);});
 }
 $("printHistory").addEventListener("click",()=>window.print());
 $("emailForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/movements/email-report",{method:"POST",body:JSON.stringify({email:$("reportEmail").value,from:$("fromDate").value,to:$("toDate").value})});message(d.message);}catch(err){message(err.message,true);}});
@@ -544,7 +562,29 @@ $("restoreButton").addEventListener("click",async()=>{
  }catch(err){message(err.message||"Arquivo inválido ou falha na restauração.",true);}
 });
 
-$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();message("Usuário criado.");}catch(err){message(err.message,true);}});
+async function loadUsersList(){
+ try{
+  if(currentUser?.role!=="superadmin"||!selectedCompanyId)return;
+  const users=await api("/users"),box=$("userList");if(!box)return;box.replaceChildren();
+  if(!users.length){box.textContent="Nenhum usuário cadastrado nesta empresa.";return;}
+  users.forEach(user=>{
+   const row=document.createElement("div");row.className="management-row";
+   const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;
+   const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
+   const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{
+    const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;
+    const profile=prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;
+    const sector=prompt("Setor:",user.sector||"");if(sector===null)return;
+    try{await api("/users/"+user._id,{method:"PATCH",body:JSON.stringify({name,email,role:profile,sector})});await loadUsersList();message("Usuário atualizado.");}catch(err){message(err.message,true);}
+   });row.appendChild(edit);
+   const action=document.createElement("button");action.type="button";action.textContent=user.active===false?"Reativar":"Excluir";action.className=user.active===false?"":"danger";action.addEventListener("click",async()=>{
+    if(!confirm((user.active===false?"Reativar":"Desativar")+" o acesso de "+user.name+"?"))return;
+    try{await api("/users/"+user._id+(user.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadUsersList();message("Acesso do usuário atualizado.");}catch(err){message(err.message,true);}
+   });row.appendChild(action);box.appendChild(row);
+  });
+ }catch(err){message(err.message,true);}
+}
+$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
 // Carrega empresas ativas para o cadastro.
 async function loadPublicCompanies(){

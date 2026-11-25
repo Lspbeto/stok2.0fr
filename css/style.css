@@ -254,3 +254,26 @@
 .chat-message{overflow-wrap:anywhere}
 #chatConversation{min-width:220px}
 @media(max-width:600px){.chat-toolbar{display:grid}.chat-toolbar label{min-width:0}.chat-actions button{flex:1}}
+
+
+/* Painel de relatórios e impressão */
+.report-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0}
+.report-toolbar label{display:flex;align-items:center;gap:8px}
+.report-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:14px 0}
+.report-kpi{display:grid;gap:4px;padding:13px;border:1px solid var(--border,#d8dee8);border-radius:10px;background:var(--surface-muted,#f7f8fa)}
+.report-kpi strong{font-size:22px}.report-kpi span{font-size:12px;color:var(--muted,#667085)}
+.report-block{margin:18px 0}.report-block h3{font-size:16px;margin:0 0 8px}
+.report-block .table-wrap{max-width:100%;overflow:auto}
+.report-block table{width:100%;border-collapse:collapse;font-size:12px}
+.report-block th,.report-block td{padding:8px;border-bottom:1px solid var(--border,#d8dee8);text-align:left;white-space:nowrap}
+.report-block th{background:var(--surface-muted,#f4f6fa);position:sticky;top:0}
+@media print{
+ body *{visibility:hidden!important}
+ #reports,#reports *{visibility:visible!important}
+ #reports{display:block!important;position:absolute;left:0;top:0;width:100%;padding:0;border:0;box-shadow:none}
+ .main-nav,.report-toolbar,#message{display:none!important}
+ .report-block{break-inside:avoid}
+ .report-block .table-wrap{overflow:visible}
+ .report-block table{font-size:8px}
+ .report-block th,.report-block td{white-space:normal;padding:4px}
+}

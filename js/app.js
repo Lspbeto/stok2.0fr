@@ -708,13 +708,16 @@ async function loadChatMessages(){
   channelSelect.value=activeChatConversation;
   const query=(currentUser.role==="superadmin"?"?companyId="+encodeURIComponent(companyId)+"&":"?")+"conversationId="+encodeURIComponent(activeChatConversation);
   const messages=await api("/chat/messages"+query),box=$("chatMessages");box.replaceChildren();
+  const messageMap=new Map(messages.map(x=>[String(x._id),x]));
   messages.forEach(item=>{
    const article=document.createElement("article");article.className="chat-message";
    const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador da empresa":item.senderRole==="admin_setor"?"Administrador do setor":"Operador";
    const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.deletedAt?"Mensagem removida":item.message;
    const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR")+(item.editedAt?" • editada":"");
-   article.append(heading,body,date);
+   article.appendChild(heading);
+   if(item.replyTo&&messageMap.has(String(item.replyTo))){const original=messageMap.get(String(item.replyTo));const quote=document.createElement("blockquote");quote.className="chat-reply-quote";quote.textContent="Resposta a "+original.senderName+": "+original.message;article.appendChild(quote);}
+   article.append(body,date);
    if(!item.deletedAt){
     const actions=document.createElement("div");actions.className="chat-actions";
     const reply=document.createElement("button");reply.type="button";reply.textContent="Responder";reply.className="secondary";

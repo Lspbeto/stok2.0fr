@@ -2,7 +2,7 @@
 const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
 let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedUsersReport = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
 const $ = id => document.getElementById(id);
-function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
+function message(text, error=false) { const target=currentUser&&$("loginSuccessMessage")?$("loginSuccessMessage"):$("message"); target.textContent=text; target.style.color=error?"#b42318":"#167044"; }
 async function api(path, options={}) {
   const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(currentUser?.role==="superadmin"&&selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
   const data=await response.json().catch(()=>({}));
@@ -37,6 +37,7 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
+  $("loginSuccessMessage").textContent="Login realizado."; $("loginSuccessMessage").style.color="#167044";
   $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("companiesUsersReportOption").hidden=!isSuperAdmin; $("historyCompanyFilterWrap").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
@@ -262,7 +263,7 @@ $("changePasswordForm").addEventListener("submit",async e=>{
   }catch(err){message(err.message,true);}
   finally{if(submit)submit.disabled=false;}
 });
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
 $("showTemporary").addEventListener("click",()=>{$("login").hidden=true;$("temporaryScreen").hidden=false;});

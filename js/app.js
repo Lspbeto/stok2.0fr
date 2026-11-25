@@ -317,7 +317,7 @@ function renderDashboard(){
  ],[{label:"Operação",value:x=>x.action},{label:"Registros",value:x=>x.count},{label:"Quantidade",value:x=>x.total}]));
  const access=$("dashboardAccessTable");access.replaceChildren(dashboardTable(users,[{label:"Usuário",value:x=>x.name},{label:"E-mail",value:x=>x.email},{label:"Perfil",value:x=>roles[x.role]||x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"},{label:"Último acesso",value:x=>dashboardDate(x.lastLoginAt)},{label:"Total de acessos",value:x=>x.loginCount||0}]));
 }
-$("dashboardRefresh").addEventListener("click",()=>{if(dashboardData)renderDashboard();else loadDashboard();});
+$("dashboardRefresh").addEventListener("click",loadDashboard);
 $("dashboardSector").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
 $("dashboardFrom").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
 $("dashboardTo").addEventListener("change",()=>{if(dashboardData)renderDashboard();});

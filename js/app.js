@@ -913,7 +913,7 @@ $("activityForm").addEventListener("submit",async e=>{
  }catch(err){message(err.message,true);}
 });
 $("activityRefresh").addEventListener("click",loadActivities);
-\n
+
 let latestReportData=null;
 function reportDate(value){return value?new Date(value).toLocaleString("pt-BR"):"—";}
 function reportCell(value){return value===null||value===undefined||value===""?"—":String(value);}

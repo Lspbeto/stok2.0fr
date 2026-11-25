@@ -284,3 +284,23 @@
 .chat-new-conversation select[multiple]{min-height:90px}
 .chat-reply-quote{margin:8px 0;padding:7px 10px;border-left:3px solid var(--primary,#356ac3);background:var(--surface-muted,#f4f6fa);font-size:12px;color:var(--muted,#667085);white-space:pre-wrap}
 @media(max-width:850px){.chat-new-conversation{grid-template-columns:1fr}.chat-new-conversation button{width:100%}}
+
+/* Painel de gestão: componentes padronizados e responsivos */
+.dashboard-filters{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr)) auto;gap:12px;align-items:end;padding:14px;margin:14px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff)}
+.dashboard-filters label{display:grid;gap:5px;margin:0;font-size:12px;font-weight:650}
+.dashboard-filters input,.dashboard-filters select{width:100%;min-width:0}
+.dashboard-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.dashboard-kpi,.dashboard-card{min-width:0;padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--surface,#fff);box-shadow:0 2px 8px rgba(16,24,40,.04)}
+.dashboard-kpi{display:grid;gap:5px;min-height:112px;align-content:center}
+.dashboard-kpi strong{font-size:25px;line-height:1.1;color:var(--blue)}
+.dashboard-kpi span{font-size:13px;font-weight:700}
+.dashboard-kpi small{font-size:11px;color:var(--muted)}
+.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.dashboard-card h3{margin:0 0 12px;font-size:16px}
+.dashboard-card .table-wrap{width:100%;overflow:auto}
+.dashboard-card table{width:100%;border-collapse:collapse;font-size:12px}
+.dashboard-card th,.dashboard-card td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.dashboard-card th{background:var(--surface-muted,#f4f6fa);font-weight:700}
+.dashboard-access{margin-top:12px}
+@media(max-width:850px){.dashboard-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-grid{grid-template-columns:1fr}}
+@media(max-width:520px){.dashboard-filters{grid-template-columns:1fr}.dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard-kpi{min-height:96px;padding:11px}.dashboard-kpi strong{font-size:21px}}

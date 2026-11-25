@@ -1110,8 +1110,10 @@ function reportDate(value){return value?new Date(value).toLocaleString("pt-BR"):
 function reportCell(value){return value===null||value===undefined||value===""?"—":String(value);}
 function reportActionsAllowed(row){
  if(!currentUser||!["superadmin","admin"].includes(currentUser.role))return false;
- if(currentUser.role==="admin")return String(row.companyId?._id||row.companyId||"")===String(currentUser.companyId?._id||currentUser.companyId||"");
- return !!selectedCompanyId&&String(row.companyId?._id||row.companyId||"")===String(selectedCompanyId);
+ const companyId=String(row.companyId?._id||row.companyId||row._id||"");
+ if(currentUser.role==="admin")return companyId===String(currentUser.companyId?._id||currentUser.companyId||"");
+ const allCompanies=$("reportAllCompanies")?.checked||!selectedCompanyId;
+ return allCompanies||companyId===String(selectedCompanyId);
 }
 async function editReportUser(row){
  const name=prompt("Nome:",row.name||"");if(name===null)return;

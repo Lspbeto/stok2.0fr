@@ -356,8 +356,8 @@ function renderDashboard(){
  const sector=dashboardData.scope==="ALL_COMPANIES"?"":$("dashboardSector").value;
  if(dashboardData.scope==="ALL_COMPANIES"){
   const s=dashboardData.summary||{};
-  $("dashboardKpis").replaceChildren(dashboardKpi("Empresas cadastradas",s.companies??0,"Total de empresas ativas"),dashboardKpi("Produtos cadastrados",s.products??0,"Mercadorias e bens ativos"),dashboardKpi("Movimentações",s.movements??0,"Registros de movimentação"),dashboardKpi("Usuários cadastrados",s.users??0,"Contas vinculadas às empresas"));
-  $("dashboardRegistrations").replaceChildren(dashboardTable([{label:"Empresas",value:s.companies??0},{label:"Produtos cadastrados",value:s.products??0},{label:"Movimentações registradas",value:s.movements??0},{label:"Usuários cadastrados",value:s.users??0}],[{label:"Indicador geral",value:x=>x.label},{label:"Total",value:x=>x.value}]));
+  $("dashboardKpis").replaceChildren(dashboardKpi("Empresas cadastradas",s.companies??0,"Empresas não excluídas"),dashboardKpi("Produtos ativos",s.products??0,"Mercadorias e bens ativos"),dashboardKpi("Movimentações",s.movements??0,"Registros de movimentação"),dashboardKpi("Usuários cadastrados",s.users??0,"Contas vinculadas às empresas"));
+  $("dashboardRegistrations").replaceChildren(dashboardTable([{label:"Empresas",value:s.companies??0},{label:"Produtos ativos",value:s.products??0},{label:"Movimentações registradas",value:s.movements??0},{label:"Usuários cadastrados",value:s.users??0}],[{label:"Indicador geral",value:x=>x.label},{label:"Total",value:x=>x.value}]));
   $("dashboardMovementBalance").replaceChildren(dashboardTable([{label:"Movimentações registradas",value:s.movements??0}],[{label:"Indicador",value:x=>x.label},{label:"Total",value:x=>x.value}]));
   $("dashboardAccessTable").replaceChildren(dashboardTable(dashboardData.users||[],[{label:"Usuário",value:x=>x.name},{label:"Empresa",value:x=>x.companyName||"—"},{label:"Perfil",value:x=>x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"}]));
   return;

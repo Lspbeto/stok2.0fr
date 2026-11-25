@@ -1115,28 +1115,34 @@ function reportActionsAllowed(row){
  const allCompanies=$("reportAllCompanies")?.checked||!selectedCompanyId;
  return allCompanies||companyId===String(selectedCompanyId);
 }
+async function reportScopedApi(row,path,options={}){
+ const companyId=String(row.companyId?._id||row.companyId||row._id||"");
+ const headers={...(options.headers||{})};
+ if(currentUser?.role==="superadmin"&&companyId)headers["X-Company-Id"]=companyId;
+ return api(path,{...options,headers});
+}
 async function editReportUser(row){
  const name=prompt("Nome:",row.name||"");if(name===null)return;
  const email=prompt("E-mail:",row.email||"");if(email===null)return;
  const sector=prompt("Setor:",row.sector||"");if(sector===null)return;
- try{const result=await api("/users/"+row._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(result.message||"Usuário atualizado.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/users/"+row._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(result.message||"Usuário atualizado.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 async function deleteReportUser(row){
  if(!confirm("Excluir o usuário "+(row.name||"")+"? O registro será preservado para auditoria."))return;
- try{const result=await api("/users/"+row._id,{method:"DELETE"});message(result.message||"Usuário excluído.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/users/"+row._id,{method:"DELETE"});message(result.message||"Usuário excluído.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 async function editReportMovement(row){
  const action=prompt("Operação:",row.action||"");if(action===null)return;
  const quantity=prompt("Quantidade:",row.quantity??"");if(quantity===null)return;
  const details=prompt("Detalhes:",row.details||"");if(details===null)return;
- try{const result=await api("/movements/"+row._id,{method:"PATCH",body:JSON.stringify({action,quantity:Number(quantity),details})});message(result.message||"Movimentação corrigida.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/movements/"+row._id,{method:"PATCH",body:JSON.stringify({action,quantity:Number(quantity),details})});message(result.message||"Movimentação corrigida.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 async function deleteReportMovement(row){
  if(!confirm("Excluir esta movimentação do relatório? O histórico original ficará preservado para auditoria."))return;
- try{const result=await api("/movements/"+row._id,{method:"DELETE"});message(result.message||"Movimentação excluída.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/movements/"+row._id,{method:"DELETE"});message(result.message||"Movimentação excluída.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 async function editReportCompany(row){
@@ -1145,12 +1151,12 @@ async function editReportCompany(row){
  const address=prompt("Endereço:",row.address||"");if(address===null)return;
  const neighborhood=prompt("Bairro:",row.neighborhood||"");if(neighborhood===null)return;
  const city=prompt("Cidade:",row.city||"");if(city===null)return;
- try{const result=await api("/companies/"+row._id,{method:"PATCH",body:JSON.stringify({name,cnpj,address,neighborhood,city})});message(result.message||"Empresa atualizada.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/companies/"+row._id,{method:"PATCH",body:JSON.stringify({name,cnpj,address,neighborhood,city})});message(result.message||"Empresa atualizada.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 async function deleteReportCompany(row){
  if(!confirm("Excluir a empresa "+(row.name||"")+"? Os acessos vinculados serão bloqueados e o registro ficará preservado."))return;
- try{const result=await api("/companies/"+row._id,{method:"DELETE"});message(result.message||"Empresa excluída.");await loadReports();}
+ try{const result=await reportScopedApi(row,"/companies/"+row._id,{method:"DELETE"});message(result.message||"Empresa excluída.");await loadReports();}
  catch(err){message(err.message,true);}
 }
 function renderReportTable(title,rows,columns,actions){

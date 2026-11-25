@@ -408,3 +408,35 @@ body:has(#pendingScreen:not([hidden])) .brand{
 #login.login-card #loginForm .login-submit{width:min(100%,340px);align-self:center}
 #login.login-card>.register-link{align-self:center;text-align:center}
 #login.login-card>.login-note{text-align:center;width:100%}
+
+/* Força o título e a descrição STOK no centro da viewport em qualquer tela pública. */
+body > main.container > header.brand{
+  display:flex !important;
+  flex:0 0 auto !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  align-self:stretch !important;
+  width:100% !important;
+  max-width:none !important;
+  margin:0 auto 22px !important;
+  padding:0 !important;
+  text-align:center !important;
+  box-sizing:border-box !important;
+}
+body > main.container > header.brand > .brand-mark{
+  display:block !important;
+  flex:none !important;
+  width:auto !important;
+  max-width:100% !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  text-align:center !important;
+  align-self:center !important;
+}
+body > main.container > header.brand > p{
+  display:block !important;
+  width:100% !important;
+  margin:6px auto 0 !important;
+  text-align:center !important;
+}

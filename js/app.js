@@ -745,7 +745,7 @@ async function loadChatMessages(){
    if(!item.deletedAt){
     const actions=document.createElement("div");actions.className="chat-actions";
     const reply=document.createElement("button");reply.type="button";reply.textContent="Responder";reply.className="secondary";
-    reply.addEventListener("click",()=>{activeChatReply=item._id;$("chatReplyInfo").hidden=false;$("chatReplyInfo").textContent="Respondendo a "+item.senderName+": "+item.message.slice(0,90);$("chatText").focus();});
+    reply.addEventListener("click",()=>{activeChatReply=item._id;$("chatReplyInfo").hidden=false;$("chatCancelReply").hidden=false;$("chatReplyInfo").textContent="Respondendo a "+item.senderName+": "+item.message.slice(0,90);$("chatText").focus();});
     actions.appendChild(reply);
     if(String(item.senderId)===String(currentUser._id)||["admin","superadmin"].includes(currentUser.role)||(currentUser.role==="admin_setor"&&item.senderSector===currentUser.sector)){
      const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.className="secondary";
@@ -764,14 +764,14 @@ async function loadChatMessages(){
 }
 $("chatCompany").addEventListener("change",()=>{activeChatConversation="empresa";loadChatContacts();loadChatMessages();});
 $("chatConversation").addEventListener("change",()=>{activeChatConversation=$("chatConversation").value;loadChatMessages();});
-$("chatCancelReply").addEventListener("click",()=>{activeChatReply=null;$("chatReplyInfo").hidden=true;});
+$("chatCancelReply").addEventListener("click",()=>{activeChatReply=null;$("chatReplyInfo").hidden=true;$("chatCancelReply").hidden=true;});
 $("refreshChat").addEventListener("click",loadChatMessages);
 $("chatForm").addEventListener("submit",async e=>{
  e.preventDefault();try{
   const payload={message:$("chatText").value,conversationId:activeChatConversation,replyTo:activeChatReply};
   if(currentUser.role==="superadmin")payload.companyId=$("chatCompany").value;
   await api("/chat/messages",{method:"POST",body:JSON.stringify(payload)});
-  $("chatText").value="";activeChatReply=null;$("chatReplyInfo").hidden=true;await loadChatMessages();message("Mensagem enviada.");
+  $("chatText").value="";activeChatReply=null;$("chatReplyInfo").hidden=true;$("chatCancelReply").hidden=true;await loadChatMessages();message("Mensagem enviada.");
  }catch(err){message(err.message,true);}
 });
  // Painel central: operadores abrem pedidos; administradores analisam conforme seu alcance.

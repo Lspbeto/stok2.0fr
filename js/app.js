@@ -720,7 +720,7 @@ async function loadChatMessages(){
     const reply=document.createElement("button");reply.type="button";reply.textContent="Responder";reply.className="secondary";
     reply.addEventListener("click",()=>{activeChatReply=item._id;$("chatReplyInfo").hidden=false;$("chatReplyInfo").textContent="Respondendo a "+item.senderName+": "+item.message.slice(0,90);$("chatText").focus();});
     actions.appendChild(reply);
-    if(String(item.senderId)===String(currentUser._id)||["admin","superadmin"].includes(currentUser.role)){
+    if(String(item.senderId)===String(currentUser._id)||["admin","superadmin"].includes(currentUser.role)||(currentUser.role==="admin_setor"&&item.senderSector===currentUser.sector)){
      const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.className="secondary";
      edit.addEventListener("click",async()=>{const next=prompt("Edite sua mensagem:",item.message);if(next===null)return;try{await api("/chat/messages/"+item._id,{method:"PATCH",body:JSON.stringify({message:next,companyId})});await loadChatMessages();}catch(err){message(err.message,true);}});
      const del=document.createElement("button");del.type="button";del.textContent="Apagar";del.className="danger";

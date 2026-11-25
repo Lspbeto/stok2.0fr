@@ -37,13 +37,14 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
-  $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("superadmins").hidden=!isSuperAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
   if(isSuperAdmin){
     loadCompaniesList();
+    loadSuperAdmins();
     // O administrador geral precisa escolher a empresa antes de consultar dados.
     $("globalCompanySelect")?.closest("label")?.remove();
     loadGlobalCompanySelector();
@@ -803,6 +804,30 @@ async function loadUsersList(){
  }catch(err){message(err.message,true);}
 }
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
+
+// Gestão das contas globais: somente superadmin pode criar outra conta superadmin.
+async function loadSuperAdmins(){
+ try{
+  if(currentUser?.role!=="superadmin")return;
+  const rows=await api("/users/superadmins"),box=$("superadminList");box.replaceChildren();
+  rows.forEach(user=>{
+   const row=document.createElement("div");row.className="management-row";
+   const info=document.createElement("span");info.className="management-info";
+   info.textContent=user.name+" | "+user.email+" | "+(user.active?"Ativo":"Inativo")+" | Último acesso: "+(user.lastLoginAt?new Date(user.lastLoginAt).toLocaleString("pt-BR"):"Nunca");
+   row.appendChild(info);box.appendChild(row);
+  });
+  if(!rows.length)box.textContent="Nenhum administrador geral cadastrado.";
+ }catch(err){message(err.message,true);}
+}
+$("superadminForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const submit=e.submitter;if(submit)submit.disabled=true;
+ try{
+  const result=await api("/users/superadmins",{method:"POST",body:JSON.stringify({name:$("superadminName").value,email:$("superadminEmail").value,password:$("superadminPassword").value})});
+  e.target.reset();await loadSuperAdmins();message(result.message);
+ }catch(err){message(err.message,true);}
+ finally{if(submit)submit.disabled=false;}
+});
 
 // Carrega empresas ativas para o cadastro.
 async function loadPublicCompanies(){

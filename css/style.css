@@ -349,3 +349,8 @@ input:focus,select:focus,textarea:focus{border-color:#4775e8;box-shadow:0 0 0 3p
 @media(max-width:760px){.chat-page-heading{padding:16px;align-items:flex-start}.chat-page-heading h2{font-size:19px}.chat-private-label{font-size:9px;padding:6px 8px}.chat-workspace{grid-template-columns:1fr;height:auto;min-height:0}.chat-sidebar{border-right:0;border-bottom:1px solid var(--line)}.chat-conversation-list{display:flex;gap:5px;overflow-x:auto;max-height:80px;padding:0 8px 8px}.chat-conversation-item{width:auto;min-width:150px;max-width:190px;flex:0 0 auto}.chat-new-conversation{margin-bottom:8px}.chat-main{min-height:480px}.chat-messages{min-height:320px;max-height:52vh;padding:13px}.chat-message{max-width:90%}.chat-toolbar{padding:6px 12px 0}}
 @media(max-width:420px){.chat-page-heading{display:block}.chat-private-label{display:inline-flex;margin-top:10px}.chat-composer{grid-template-columns:minmax(0,1fr) auto;padding:10px}.chat-send{min-width:72px;font-size:11px;padding:8px}.chat-conversation-heading{padding:10px}.chat-refresh{font-size:9px}}
 \n/* Cadastro completo da empresa e anexo do contrato. */\n.company-contract-field{grid-column:1/-1}.company-contract-field small{display:block;color:var(--muted);font-size:12px;margin-top:5px}.form-grid>label{min-width:0}\n
+/* Centraliza a marca no cartão de acesso e fixa avisos no topo da página. */
+.login-card .login-symbol{margin:0 auto 16px}
+#message{position:sticky;top:0;z-index:1000;width:fit-content;max-width:min(100%,760px);margin:0 auto 10px;padding:10px 18px;text-align:center;border-radius:8px;background:#fff;box-shadow:0 5px 20px #1d35571a}
+#message:empty{display:none}
+#globalReport.global-report-inline{margin-top:18px}

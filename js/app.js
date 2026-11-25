@@ -18,7 +18,7 @@ async function refreshPendingStatus(){
  catch(err){$("pendingMessage").textContent=err.message;}
 }
 function showLoggedIn(user) {
-  currentUser=user; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
+  currentUser=user; $("changePasswordPanel").hidden=true; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
@@ -194,6 +194,35 @@ async function loadCompaniesList() {
   } catch (err) { message(err.message, true); }
 }
 
+// Alteração de senha disponível para todos os perfis, limitada à própria conta.
+function closeChangePassword(){
+  $("changePasswordPanel").hidden=true;
+  $("app").querySelectorAll(".tab").forEach(section=>section.hidden=true);
+  $("showChangePassword").setAttribute("aria-expanded","false");
+}
+$("showChangePassword").addEventListener("click",()=>{
+  $("app").querySelectorAll(".tab").forEach(section=>section.hidden=true);
+  document.querySelectorAll(".tab-button").forEach(button=>button.classList.remove("active"));
+  $("changePasswordPanel").hidden=false;
+  $("showChangePassword").setAttribute("aria-expanded","true");
+  $("currentPassword").focus();
+});
+$("cancelChangePassword").addEventListener("click",closeChangePassword);
+$("changePasswordForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const currentPassword=$("currentPassword").value;
+  const newPassword=$("newPassword").value;
+  if(newPassword!==$("confirmNewPassword").value){message("A confirmação da nova senha não confere.",true);return;}
+  if(newPassword.length<8){message("A nova senha deve ter pelo menos 8 caracteres.",true);return;}
+  const submit=e.submitter;if(submit)submit.disabled=true;
+  try{
+    const result=await api("/auth/change-password",{method:"POST",body:JSON.stringify({currentPassword,newPassword})});
+    e.target.reset();
+    closeChangePassword();
+    message(result.message);
+  }catch(err){message(err.message,true);}
+  finally{if(submit)submit.disabled=false;}
+});
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});

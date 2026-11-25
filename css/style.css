@@ -467,3 +467,65 @@ body > main.container > header.brand > p{
   clear:both !important;
   text-align:center !important;
 }
+
+/* Refinamento visual das telas de acesso e destaque para a marca STOK. */
+.login-card{
+  width:min(100%,460px);
+  padding:38px 36px;
+  border:1px solid #dfe7f2;
+  border-radius:18px;
+  background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);
+  box-shadow:0 18px 55px rgba(20,45,85,.12);
+}
+.login-symbol{
+  width:104px;
+  height:104px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:0 auto 22px;
+  padding:8px;
+  border-radius:22px;
+  background:#f0f5fc;
+  box-shadow:0 8px 22px rgba(20,45,85,.10);
+}
+.login-symbol img{
+  display:block;
+  width:88px;
+  height:88px;
+  max-width:100%;
+  object-fit:contain;
+}
+.login-card h2{
+  width:100%;
+  margin:0 0 10px;
+  color:#17345c;
+  font-size:23px;
+  line-height:1.25;
+  text-align:center;
+}
+.login-card>.muted{
+  margin:0 0 22px;
+  color:#64748b;
+  line-height:1.55;
+  text-align:center;
+}
+.login-card form{gap:15px}
+.login-card label{gap:8px;color:#263b59}
+.login-card input{
+  min-height:46px;
+  border-radius:9px;
+  background:#fff;
+}
+.login-submit{
+  min-height:48px;
+  border-radius:9px;
+  font-weight:700;
+  box-shadow:0 5px 13px rgba(32,79,196,.18);
+}
+@media(max-width:520px){
+  .login-card{padding:30px 22px;border-radius:15px}
+  .login-symbol{width:94px;height:94px}
+  .login-symbol img{width:80px;height:80px}
+  .login-card h2{font-size:21px}
+}

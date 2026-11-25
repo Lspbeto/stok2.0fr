@@ -39,7 +39,7 @@ function showLoggedIn(user) {
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   $("createTab").hidden=!isAdmin; $("superadmins").hidden=!isSuperAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
-  $("deliveryForm").hidden=user.role!=="admin";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role);
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
   if(isSuperAdmin){
@@ -565,7 +565,7 @@ async function loadDeliveries(){
    deliveryQuantity.title=asset?"Bem permanente é controlado individualmente (1 unidade).":"";
   }
   deliveryProduct.onchange=updateDeliveryQuantity;updateDeliveryQuantity();
-  $("deliveryForm").hidden=currentUser.role!=="admin";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(currentUser.role);
   $("deliveryList").replaceChildren();
   items.forEach(d=>{
    const card=document.createElement("article");card.className="panel";

@@ -301,7 +301,7 @@ async function loadGlobalCompanySelector(){
  try{
   const previousSelection=selectedCompanyId;selectedCompanyId="";
   const companies=await api("/companies");
-  const historyCompany=$("historyCompanyFilter");if(historyCompany){const selected=selectedCompanyId;historyCompany.replaceChildren();const allOption=document.createElement("option");allOption.value="";allOption.textContent="Todas as empresas";historyCompany.appendChild(allOption);companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;historyCompany.appendChild(o);});historyCompany.value=selected||"";}
+  const historyCompany=$("historyCompanyFilter");if(historyCompany){const selected=selectedCompanyId;historyCompany.replaceChildren();const allOption=document.createElement("option");allOption.value="";allOption.textContent="Selecione a empresa";allOption.disabled=true;historyCompany.appendChild(allOption);companies.filter(c=>c.active!==false).forEach(c=>{const o=document.createElement("option");o.value=c._id;o.textContent=c.name;historyCompany.appendChild(o);});historyCompany.value=selected||"";}
    // O seletor geral de empresa é a única referência para os cadastros do administrador geral.
   let select=$("globalCompanySelect");
   if(!select){
@@ -519,7 +519,7 @@ function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
 $("historyUserFilter").addEventListener("change",renderHistory);
-$("historyCompanyFilter").addEventListener("change",()=>{if(currentUser?.role==="superadmin"){selectedCompanyId=$("historyCompanyFilter").value;localStorage.setItem("stok_company_id",selectedCompanyId);loadHistory();}});
+$("historyCompanyFilter").addEventListener("change",()=>{if(currentUser?.role==="superadmin"){const choice=$("historyCompanyFilter").value;if(!choice){message("Selecione uma empresa para consultar o histórico.",true);$("historyCompanyFilter").value=selectedCompanyId||"";return;}selectedCompanyId=choice;localStorage.setItem("stok_company_id",selectedCompanyId);loadHistory();}});
 $("reportType").addEventListener("change",()=>{if($("reportType").value==="companiesUsers"){loadGlobalCompaniesUsersReport();}renderHistory();});
 async function loadHistory(){try{
  const type=$("reportType")?.value||"both";

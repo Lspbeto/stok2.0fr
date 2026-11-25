@@ -278,7 +278,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history","authorizations","activities","reports"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","authorizations","activities"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId&&!(b.dataset.tab==="reports"&&$("reportAllCompanies").checked)){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -335,15 +335,16 @@ async function loadDashboard(){
  const status=$("dashboardStatus");if(!status)return;
  try{
   status.textContent="Consultando os dados autorizados...";
-  if(currentUser?.role==="superadmin"&&!selectedCompanyId){status.textContent="Selecione uma empresa no seletor de Administração Geral para consultar o painel.";return;}
-  const query=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
-  const [data,sectors]=await Promise.all([api("/reports/overview"+query),api("/sectors")]);
+  const allCompanies=currentUser?.role==="superadmin"&&!selectedCompanyId;
+  const query=currentUser?.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const [data,sectors]=await Promise.all([api("/reports/overview"+query),allCompanies?Promise.resolve([]):api("/sectors")]);
   dashboardData=data;
   const sectorSelect=$("dashboardSector"),previous=sectorSelect.value;sectorSelect.replaceChildren();
   const all=document.createElement("option");all.value="";all.textContent="Todos os setores permitidos";sectorSelect.appendChild(all);
   sectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sectorSelect.appendChild(o);});
-  if(currentUser?.role==="admin_setor"){sectorSelect.value=currentUser.sector||"";sectorSelect.disabled=true;}
-  else if(sectors.some(s=>s.name===previous&&s.active!==false))sectorSelect.value=previous;
+  if(allCompanies){sectorSelect.value="";sectorSelect.disabled=true;}
+  else if(currentUser?.role==="admin_setor"){sectorSelect.value=currentUser.sector||"";sectorSelect.disabled=true;}
+  else {sectorSelect.disabled=false;if(sectors.some(s=>s.name===previous&&s.active!==false))sectorSelect.value=previous;}
   renderDashboard();
   status.textContent="Painel atualizado em "+new Date().toLocaleString("pt-BR")+". Escopo: "+(data.scope==="SECTOR"?"seu setor":data.scope==="ALL_COMPANIES"?"todas as empresas":"empresa selecionada")+".";
  }catch(err){status.textContent=err.message;message(err.message,true);}
@@ -352,7 +353,15 @@ function renderDashboard(){
  if(!dashboardData)return;
  const from=$("dashboardFrom").value?new Date($("dashboardFrom").value+"T00:00:00"):null;
  const to=$("dashboardTo").value?new Date($("dashboardTo").value+"T23:59:59.999"):null;
- const sector=$("dashboardSector").value;
+ const sector=dashboardData.scope==="ALL_COMPANIES"?"":$("dashboardSector").value;
+ if(dashboardData.scope==="ALL_COMPANIES"){
+  const s=dashboardData.summary||{};
+  $("dashboardKpis").replaceChildren(dashboardKpi("Empresas cadastradas",s.companies??0,"Total de empresas ativas"),dashboardKpi("Produtos cadastrados",s.products??0,"Mercadorias e bens ativos"),dashboardKpi("Movimentações",s.movements??0,"Registros de movimentação"),dashboardKpi("Usuários cadastrados",s.users??0,"Contas vinculadas às empresas"));
+  $("dashboardRegistrations").replaceChildren(dashboardTable([{label:"Empresas",value:s.companies??0},{label:"Produtos cadastrados",value:s.products??0},{label:"Movimentações registradas",value:s.movements??0},{label:"Usuários cadastrados",value:s.users??0}],[{label:"Indicador geral",value:x=>x.label},{label:"Total",value:x=>x.value}]));
+  $("dashboardMovementBalance").replaceChildren(dashboardTable([{label:"Movimentações registradas",value:s.movements??0}],[{label:"Indicador",value:x=>x.label},{label:"Total",value:x=>x.value}]));
+  $("dashboardAccessTable").replaceChildren(dashboardTable(dashboardData.users||[],[{label:"Usuário",value:x=>x.name},{label:"Empresa",value:x=>x.companyName||"—"},{label:"Perfil",value:x=>x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"}]));
+  return;
+ }
  const inRange=row=>{const d=new Date(row.createdAt||0);return (!from||d>=from)&&(!to||d<=to)&&(!sector||[row.sector,row.sourceSector,row.destinationSector,row.actionSector,row.createdSector,row.responsibleSector].includes(sector));};
  const movements=(dashboardData.movements||[]).filter(inRange);
  const users=(dashboardData.users||[]).filter(x=>!sector||x.sector===sector);
@@ -1113,11 +1122,11 @@ function renderReportTable(title,rows,columns){
 async function loadReports(){
  try{
   $("reportStatus").textContent="Consultando dados autorizados...";
-  const all=currentUser.role==="superadmin"&&$("reportAllCompanies").checked;
-  const query=all?"?allCompanies=true":currentUser.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const all=currentUser.role==="superadmin"&&($("reportAllCompanies").checked||!selectedCompanyId);
+  const query=all?"":currentUser.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
   const data=await api("/reports/overview"+query);latestReportData=data;
   const summary=$("reportSummary");summary.replaceChildren();
-  const counts=[["Empresas",data.companies?.length||0],["Usuários",data.users?.length||0],["Produtos",data.products?.length||0],["Movimentações",data.movements?.length||0],["Prestações",data.accountEntries?.length||0],["Atividades",data.activities?.length||0]];
+  const counts=[["Empresas",data.summary?.companies??data.companies?.length??0],["Usuários",data.summary?.users??data.users?.length??0],["Produtos",data.summary?.products??data.products?.length??0],["Movimentações",data.summary?.movements??data.movements?.length??0],["Prestações",data.accountEntries?.length||0],["Atividades",data.activities?.length||0]];
   counts.forEach(([label,value])=>{const card=document.createElement("div");card.className="report-kpi";const strong=document.createElement("strong");strong.textContent=value;const span=document.createElement("span");span.textContent=label;card.append(strong,span);summary.appendChild(card);});
   const tables=$("reportTables");tables.replaceChildren();
   const company={label:"Empresa",value:r=>r.companyName||"—"};

@@ -323,7 +323,7 @@ async function loadGlobalCompanySelector(){
   if(companies.some(c=>c._id===previousSelection&&c.active!==false)){selectedCompanyId=previousSelection;select.value=selectedCompanyId;}
   else {selectedCompanyId="";localStorage.removeItem("stok_company_id");select.value="";}
   $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
-  if(selectedCompanyId){loadSectors();}else message("Administrador geral: selecione uma empresa para cadastrar setores e usuários.");
+  if(selectedCompanyId){loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();if(document.querySelector("[data-tab=dashboard].active"))loadDashboard();}else message("Administrador geral: selecione uma empresa para cadastrar setores e usuários.");
  }catch(err){message(err.message,true);}
 }
 

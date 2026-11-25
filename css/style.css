@@ -321,3 +321,6 @@
 #changePasswordPanel .form-grid{max-width:620px}
 #changePasswordPanel .form-grid label{display:grid;gap:6px}
 #changePasswordPanel .form-grid button{width:auto}
+
+/* Saudação e setor do perfil, exibidos em duas linhas no cabeçalho. */
+.welcome-block{display:flex;flex-direction:column;gap:4px;min-width:220px}.welcome-block #welcome{font-weight:700;color:#344767}.welcome-block #welcomeSector{font-size:12px;color:var(--muted)}

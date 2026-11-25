@@ -738,7 +738,7 @@ async function loadChatMessages(){
    const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador da empresa":item.senderRole==="admin_setor"?"Administrador do setor":"Operador";
    const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.deletedAt?"Mensagem removida":item.message;
-   const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR")+(item.editedAt?" • editada":"");
+   const date=document.createElement("small");date.textContent=new Date(item.createdAt).toLocaleString("pt-BR")+(item.editedAt?" • editada":"")+(String(item.senderId)===String(currentUser._id)&&(item.readBy||[]).length>1?" • lida":"");
    article.appendChild(heading);
    if(item.replyTo&&messageMap.has(String(item.replyTo))){const original=messageMap.get(String(item.replyTo));const quote=document.createElement("blockquote");quote.className="chat-reply-quote";quote.textContent="Resposta a "+original.senderName+": "+original.message;article.appendChild(quote);}
    article.append(body,date);
@@ -757,7 +757,7 @@ async function loadChatMessages(){
     article.appendChild(actions);
    }
    box.appendChild(article);
-   if(!item.deletedAt&&String(item.senderId)!==String(currentUser._id))api("/chat/messages/"+item._id+"/read",{method:"POST",body:JSON.stringify({companyId})}).catch(()=>{});
+   if(!item.deletedAt&&String(item.senderId)!==String(currentUser._id)&&!(item.readBy||[]).some(x=>String(x.userId)===String(currentUser._id)))api("/chat/messages/"+item._id+"/read",{method:"POST",body:JSON.stringify({companyId})}).catch(()=>{});
   });
   box.scrollTop=box.scrollHeight;
  }catch(err){message(err.message,true);}

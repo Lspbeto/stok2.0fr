@@ -887,6 +887,7 @@ async function loadActivities(){
   allowedSectors.filter(x=>x.active!==false).forEach(x=>{const o=document.createElement("option");o.value=x.name;o.textContent=x.name;sectorSelect.appendChild(o);});
   if(previous&&[...sectorSelect.options].some(o=>o.value===previous))sectorSelect.value=previous;
   if(currentUser?.role==="operador"||currentUser?.role==="admin_setor")sectorSelect.value=currentUser.sector||"";
+  sectorSelect.disabled=["operador","admin_setor"].includes(currentUser?.role);
   const fillAssignees=()=>{
    const select=$("activityAssignees");select.replaceChildren();
    const sector=sectorSelect.value;

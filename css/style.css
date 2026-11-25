@@ -394,3 +394,17 @@ body:has(#pendingScreen:not([hidden])) .brand{
  body:has(#resetScreen:not([hidden])) .container,
  body:has(#pendingScreen:not([hidden])) .container{padding:20px 14px}
 }
+
+/* Alinhamento centralizado dos campos da tela de login. */
+#login.login-card{display:flex;flex-direction:column;align-items:center;text-align:center}
+#login.login-card .login-symbol{align-self:center}
+#login.login-card h2,#login.login-card>.muted{text-align:center;width:100%}
+#login.login-card #loginForm{display:flex;flex-direction:column;align-items:center;width:100%;gap:12px;text-align:center}
+#login.login-card #loginForm>label{display:flex;flex-direction:column;align-items:center;text-align:center;width:min(100%,340px);margin:0 auto}
+#login.login-card #loginForm>label>input,
+#login.login-card #loginForm .password-field{width:100%;max-width:100%}
+#login.login-card #loginForm>label>input{text-align:left}
+#login.login-card #loginForm .password-field input{text-align:left}
+#login.login-card #loginForm .login-submit{width:min(100%,340px);align-self:center}
+#login.login-card>.register-link{align-self:center;text-align:center}
+#login.login-card>.login-note{text-align:center;width:100%}

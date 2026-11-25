@@ -23,7 +23,7 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
-  $("createTab").hidden=!isAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
@@ -210,7 +210,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history","authorizations","activities"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","authorizations","activities","reports"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -227,6 +227,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="approvals")loadPendingUsers();
   if(b.dataset.tab==="authorizations")loadAuthorizations();
   if(b.dataset.tab==="activities")loadActivities();
+  if(b.dataset.tab==="reports")loadReports();
 }));
 // O administrador geral escolhe a empresa cujos dados deseja administrar.
 async function loadGlobalCompanySelector(){
@@ -912,3 +913,56 @@ $("activityForm").addEventListener("submit",async e=>{
  }catch(err){message(err.message,true);}
 });
 $("activityRefresh").addEventListener("click",loadActivities);
+\n
+let latestReportData=null;
+function reportDate(value){return value?new Date(value).toLocaleString("pt-BR"):"—";}
+function reportCell(value){return value===null||value===undefined||value===""?"—":String(value);}
+function renderReportTable(title,rows,columns){
+ const wrap=document.createElement("section");wrap.className="report-block";
+ const heading=document.createElement("h3");heading.textContent=title+" ("+rows.length+")";wrap.appendChild(heading);
+ if(!rows.length){const p=document.createElement("p");p.textContent="Nenhum registro encontrado.";wrap.appendChild(p);return wrap;}
+ const table=document.createElement("div");table.className="table-wrap";
+ const t=document.createElement("table"),thead=document.createElement("thead"),hr=document.createElement("tr");
+ columns.forEach(c=>{const th=document.createElement("th");th.textContent=c.label;hr.appendChild(th);});thead.appendChild(hr);t.appendChild(thead);
+ const body=document.createElement("tbody");
+ rows.forEach(row=>{const tr=document.createElement("tr");columns.forEach(c=>{const td=document.createElement("td");td.textContent=reportCell(c.value(row));tr.appendChild(td);});body.appendChild(tr);});
+ t.appendChild(body);table.appendChild(t);wrap.appendChild(table);return wrap;
+}
+async function loadReports(){
+ try{
+  $("reportStatus").textContent="Consultando dados autorizados...";
+  const all=currentUser.role==="superadmin"&&$("reportAllCompanies").checked;
+  const query=all?"?allCompanies=true":currentUser.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const data=await api("/reports/overview"+query);latestReportData=data;
+  const summary=$("reportSummary");summary.replaceChildren();
+  const counts=[["Empresas",data.companies?.length||0],["Usuários",data.users?.length||0],["Produtos",data.products?.length||0],["Movimentações",data.movements?.length||0],["Prestações",data.accountEntries?.length||0],["Atividades",data.activities?.length||0]];
+  counts.forEach(([label,value])=>{const card=document.createElement("div");card.className="report-kpi";const strong=document.createElement("strong");strong.textContent=value;const span=document.createElement("span");span.textContent=label;card.append(strong,span);summary.appendChild(card);});
+  const tables=$("reportTables");tables.replaceChildren();
+  const company={label:"Empresa",value:r=>r.companyName||"—"};
+  tables.append(
+   renderReportTable("Usuários",data.users||[],[company,{label:"Nome",value:r=>r.name},{label:"E-mail",value:r=>r.email},{label:"Perfil",value:r=>r.role},{label:"Setor",value:r=>r.sector},{label:"Cadastro",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Produtos e bens",data.products||[],[company,{label:"Produto",value:r=>r.name},{label:"Tipo",value:r=>r.category},{label:"Setor responsável",value:r=>r.responsibleSector},{label:"Setor cadastro",value:r=>r.createdSector},{label:"Cadastrado por",value:r=>r.createdByName},{label:"Quantidade",value:r=>r.quantity},{label:"Data cadastro",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Movimentações",data.movements||[],[company,{label:"Produto",value:r=>r.productName},{label:"Operação",value:r=>r.action},{label:"Quantidade",value:r=>r.quantity},{label:"Setor origem",value:r=>r.sourceSector},{label:"Setor destino",value:r=>r.destinationSector},{label:"Setor ação",value:r=>r.actionSector||r.sector},{label:"Solicitado por",value:r=>r.requestedByName},{label:"Movimentado por",value:r=>r.userName},{label:"Autorizado por",value:r=>r.authorizedByName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Entregas",data.deliveries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável pelo registro",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Prestação de contas",data.accountEntries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Tipo",value:r=>r.action+" "+(r.destination||"")},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)},{label:"Justificativa/detalhes",value:r=>r.details}]),
+   renderReportTable("Autorizações",data.authorizations||[],[company,{label:"Solicitação",value:r=>r.type},{label:"Produto",value:r=>r.productName},{label:"Solicitante",value:r=>r.requesterName},{label:"Setor",value:r=>r.requesterSector},{label:"Destino",value:r=>r.destinationSector},{label:"Status",value:r=>r.status},{label:"Decidido por",value:r=>r.decidedByName},{label:"Data",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Atividades",data.activities||[],[company,{label:"Atividade",value:r=>r.title},{label:"Situação",value:r=>r.status},{label:"Prioridade",value:r=>r.priority},{label:"Setor",value:r=>r.sector},{label:"Criada por",value:r=>r.createdByName},{label:"Responsáveis",value:r=>(r.assignedNames||[]).join(", ")},{label:"Prazo",value:r=>reportDate(r.dueDate)},{label:"Atualizada",value:r=>reportDate(r.updatedAt)}])
+  );
+  $("exportReports").disabled=false;$("printReports").disabled=false;
+  $("reportStatus").textContent="Relatório gerado em "+reportDate(data.generatedAt)+". Escopo: "+data.scope+".";
+ }catch(err){latestReportData=null;$("exportReports").disabled=true;$("printReports").disabled=true;$("reportStatus").textContent=err.message;message(err.message,true);}
+}
+function csvQuote(value){return '"'+String(value??"").replace(/"/g,'""')+'"';}
+function exportReportsCsv(){
+ if(!latestReportData)return;
+ const sections=[["USUÁRIOS",latestReportData.users||[]],["PRODUTOS",latestReportData.products||[]],["MOVIMENTAÇÕES",latestReportData.movements||[]],["ENTREGAS",latestReportData.deliveries||[]],["PRESTAÇÃO DE CONTAS",latestReportData.accountEntries||[]],["AUTORIZAÇÕES",latestReportData.authorizations||[]],["ATIVIDADES",latestReportData.activities||[]]];
+ const fields=["companyName","name","title","productName","action","type","status","priority","category","role","email","sector","sourceSector","destinationSector","actionSector","requesterName","requestedByName","userName","authorizedByName","createdByName","quantity","unit","details","createdAt","updatedAt","dueDate"];
+ const lines=["SEÇÃO;"+fields.join(";")];
+ sections.forEach(([name,rows])=>rows.forEach(row=>lines.push([name,...fields.map(k=>row[k] instanceof Date?row[k].toISOString():row[k]??"")].map(csvQuote).join(";"))));
+ const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="relatorio_STOK_"+new Date().toISOString().slice(0,10)+".csv";a.click();URL.revokeObjectURL(url);
+}
+$("loadReports").addEventListener("click",loadReports);
+$("exportReports").addEventListener("click",exportReportsCsv);
+$("printReports").addEventListener("click",()=>window.print());
+$("reportAllCompanies").addEventListener("change",()=>{latestReportData=null;$("reportStatus").textContent="Clique em Gerar relatório para atualizar o escopo.";});

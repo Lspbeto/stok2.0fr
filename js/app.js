@@ -780,6 +780,7 @@ async function loadChatCompanies(){
   $("chatCompanyLabel").hidden=currentUser.role!=="superadmin";
   $("chatCompany").disabled=currentUser.role!=="superadmin";
   if(companies.some(x=>x._id===previous))select.value=previous;
+  await loadChatContacts();
   await loadChatMessages();
   if(!window.stokChatTimer)window.stokChatTimer=window.setInterval(()=>{
    const chatTab=$("chat");
@@ -791,6 +792,18 @@ let activeChatConversation="empresa";
 let activeChatReply=null;
 let chatChannels=[];
 
+function renderChatConversationList(){
+ const list=$("chatConversationList"),filter=($("chatSearch").value||"").trim().toLocaleLowerCase("pt-BR");list.replaceChildren();
+ chatChannels.filter(ch=>ch.name.toLocaleLowerCase("pt-BR").includes(filter)).forEach(ch=>{
+  const button=document.createElement("button");button.type="button";button.className="chat-conversation-item"+(ch.id===activeChatConversation?" active":"");
+  const avatar=document.createElement("span");avatar.className="chat-list-avatar";avatar.textContent=(ch.name||"ST").split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
+  const copy=document.createElement("span");copy.className="chat-list-copy";const name=document.createElement("strong");name.textContent=ch.name;
+  const detail=document.createElement("small");detail.textContent=ch.type==="direct"?"Conversa privada":ch.type==="group"?"Grupo":ch.type==="sector"?"Canal do setor":"Canal da empresa";
+  copy.append(name,detail);button.append(avatar,copy);button.addEventListener("click",()=>{activeChatConversation=ch.id;$("chatConversation").value=ch.id;loadChatMessages();});list.appendChild(button);
+ });
+ if(!list.children.length){const empty=document.createElement("p");empty.className="chat-list-empty";empty.textContent="Nenhuma conversa encontrada.";list.appendChild(empty);}
+}
+$("chatSearch").addEventListener("input",renderChatConversationList);
 async function loadChatContacts(){
  try{
   if(!$("chatCompany").value)return;
@@ -805,6 +818,7 @@ async function createChatConversation(type){
   const participants=[...$("chatContacts").selectedOptions].map(x=>x.value);
   if(type==="DIRECT"&&participants.length!==1){message("Selecione exatamente uma pessoa para a conversa privada.",true);return;}
   if(type==="GROUP"&&participants.length<1){message("Selecione pelo menos uma pessoa para o grupo.",true);return;}
+  if(type==="GROUP"&&!$("chatGroupName").value.trim()){message("Informe um nome para o grupo.",true);$("chatGroupName").focus();return;}
   const payload={type,participants,name:$("chatGroupName").value};
   if(currentUser.role==="superadmin")payload.companyId=$("chatCompany").value;
   const created=await api("/chat/conversations",{method:"POST",body:JSON.stringify(payload)});
@@ -825,11 +839,16 @@ async function loadChatMessages(){
   chatChannels.forEach(ch=>{const o=document.createElement("option");o.value=ch.id;o.textContent=ch.name;channelSelect.appendChild(o);});
   activeChatConversation=chatChannels.some(ch=>ch.id===old)?old:"empresa";
   channelSelect.value=activeChatConversation;
+  renderChatConversationList();
+  const activeChannel=chatChannels.find(ch=>ch.id===activeChatConversation);
+  $("chatActiveTitle").textContent=activeChannel?.name||"Conversa";
+  $("chatActiveSubtitle").textContent=activeChannel?.type==="direct"?"Conversa privada":activeChannel?.type==="group"?"Grupo interno":activeChannel?.type==="sector"?"Canal do setor":"Canal interno da empresa";
+  $("chatAvatar").textContent=(activeChannel?.name||"ST").split(/\s+/).slice(0,2).map(x=>x[0]||"").join("").toUpperCase();
   const query=(currentUser.role==="superadmin"?"?companyId="+encodeURIComponent(companyId)+"&":"?")+"conversationId="+encodeURIComponent(activeChatConversation);
   const messages=await api("/chat/messages"+query),box=$("chatMessages");box.replaceChildren();
   const messageMap=new Map(messages.map(x=>[String(x._id),x]));
   messages.forEach(item=>{
-   const article=document.createElement("article");article.className="chat-message";
+   const article=document.createElement("article");article.className="chat-message "+(String(item.senderId)===String(currentUser._id)?"chat-message-own":"chat-message-other");
    const roleLabel=item.senderRole==="superadmin"?"Administrador geral STOK":item.senderRole==="admin"?"Administrador da empresa":item.senderRole==="admin_setor"?"Administrador do setor":"Operador";
    const heading=document.createElement("strong");heading.textContent=item.senderName+" — "+roleLabel+(item.senderSector?" • "+item.senderSector:"");
    const body=document.createElement("p");body.textContent=item.deletedAt?"Mensagem removida":item.message;
@@ -861,6 +880,7 @@ $("chatCompany").addEventListener("change",()=>{activeChatConversation="empresa"
 $("chatConversation").addEventListener("change",()=>{activeChatConversation=$("chatConversation").value;loadChatMessages();});
 $("chatCancelReply").addEventListener("click",()=>{activeChatReply=null;$("chatReplyInfo").hidden=true;$("chatCancelReply").hidden=true;});
 $("refreshChat").addEventListener("click",loadChatMessages);
+$("chatText").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("chatForm").requestSubmit();}});
 $("chatForm").addEventListener("submit",async e=>{
  e.preventDefault();try{
   const payload={message:$("chatText").value,conversationId:activeChatConversation,replyTo:activeChatReply};

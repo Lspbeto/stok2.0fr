@@ -3,6 +3,23 @@ const API = window.STOK_CONFIG.API_URL.replace(/\/$/, "");
 let token = localStorage.getItem("stok_token"), currentUser = null, cachedMovements = [], cachedUsersReport = [], cachedSectors = [], selectedCompanyId = localStorage.getItem("stok_company_id") || "";
 const $ = id => document.getElementById(id);
 function message(text, error=false) { $("message").textContent=text; $("message").style.color=error?"#b42318":"#167044"; }
+
+function setupMessage(text, error=false) {
+  const screen = $("firstSetupScreen");
+  let status = $("firstSetupMessage");
+  if (!status) {
+    status = document.createElement("p");
+    status.id = "firstSetupMessage";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.style.cssText = "min-height:24px;margin:12px 0;padding:10px;border-radius:7px;font-weight:650;overflow-wrap:anywhere";
+    screen.insertBefore(status, $("firstSetupForm"));
+  }
+  status.textContent = text;
+  status.style.color = error ? "#b42318" : "#167044";
+  status.style.background = error ? "#fff1f0" : "#edf8f1";
+  status.style.border = error ? "1px solid #fecdca" : "1px solid #b7e2c5";
+}
 async function api(path, options={}) {
   const response=await fetch(API+path,{...options,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{}),...(currentUser?.role==="superadmin"&&selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{}),...(options.headers||{})}});
   const data=await response.json().catch(()=>({}));
@@ -57,28 +74,33 @@ function showLoggedIn(user) {
     loadProducts();
   }
 }
-// Configuração inicial: cria o primeiro administrador geral somente se a API confirmar que não existe um.
+// Configuração inicial: cria o primeiro administrador geral somente se a API confirmar que não existe.
 $("firstSetupForm").addEventListener("submit", async e => {
   e.preventDefault();
   const password = $("firstAdminPassword").value;
   if (password !== $("firstAdminPasswordConfirm").value) {
-    message("As senhas não conferem.", true);
+    setupMessage("As senhas não conferem.", true);
     return;
   }
   const submit = e.submitter;
   if (submit) submit.disabled = true;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  setupMessage("Enviando cadastro seguro para o servidor...");
   try {
     const response = await fetch(API + "/auth/setup-admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: $("firstAdminName").value,
-        email: $("firstAdminEmail").value,
+        name: $("firstAdminName").value.trim(),
+        email: $("firstAdminEmail").value.trim(),
         password
-      })
+      }),
+      signal: controller.signal
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message || "Não foi possível criar o administrador geral.");
+    if (!response.ok) throw new Error(data.message || "O servidor recusou a criação do administrador geral (HTTP " + response.status + ").");
+    if (!data.token || !data.user) throw new Error("O servidor respondeu sem confirmar a criação da conta. Não tente cadastrar novamente antes de verificar o acesso.");
     token = data.token;
     localStorage.setItem("stok_token", token);
     $("firstSetupScreen").hidden = true;
@@ -86,13 +108,17 @@ $("firstSetupForm").addEventListener("submit", async e => {
     showLoggedIn(data.user);
     message("Administrador geral criado com sucesso. Agora cadastre as empresas de demonstração.");
   } catch (err) {
-    message(err.message, true);
+    const detail = err.name === "AbortError"
+      ? "O servidor demorou mais de 30 segundos para responder. Verifique sua conexão e atualize a página antes de tentar novamente."
+      : (err.message || "Falha de comunicação com o servidor.");
+    setupMessage(detail, true);
   } finally {
+    clearTimeout(timeout);
     if (submit) submit.disabled = false;
   }
 });
 
-// Mostrar/ocultar senha somente no campo da própria tela; a senha nunca é enviada para outro local.
+// // Mostrar/ocultar senha somente no campo da própria tela; a senha nunca é enviada para outro local.
 document.querySelectorAll("[data-toggle-password]").forEach(button => {
   button.addEventListener("click", () => {
     const field = $(button.dataset.togglePassword);

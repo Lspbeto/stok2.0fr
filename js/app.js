@@ -211,7 +211,7 @@ $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{con
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
   const companyRequired=["products","deliveries","history","authorizations","activities","reports"].includes(b.dataset.tab);
-  if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
+  if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId&&!(b.dataset.tab==="reports"&&$("reportAllCompanies").checked)){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
   }

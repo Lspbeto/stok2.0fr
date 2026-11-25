@@ -37,11 +37,11 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
-  $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
-  if(isAdmin){loadPendingUsers();}
+  if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
   if(isSuperAdmin){
     loadCompaniesList();
     // O administrador geral precisa escolher a empresa antes de consultar dados.
@@ -199,6 +199,24 @@ function renderGlobalCompaniesUsersReport(){
 
 $("globalReportRefresh")?.addEventListener("click",loadGlobalCompaniesUsersReport);
 $("globalReportSearch")?.addEventListener("input",renderGlobalCompaniesUsersReport);
+async function loadCompanyData(){
+ try{
+  const companies=await api("/companies");const box=$("companyDataList");box.replaceChildren();
+  if(!companies.length){box.textContent="Nenhum dado cadastral encontrado.";return;}
+  const company=companies[0];const row=document.createElement("div");row.className="management-row";
+  const details=document.createElement("span");details.textContent=company.name+" | CNPJ: "+(company.cnpj||"Não informado")+" | "+[company.address,company.neighborhood,company.city].filter(Boolean).join(", ");row.appendChild(details);
+  const edit=document.createElement("button");edit.type="button";edit.textContent="Editar dados";edit.addEventListener("click",async()=>{
+   const name=prompt("Razão social / nome:",company.name);if(name===null)return;
+   const cnpj=prompt("CNPJ:",company.cnpj||"");if(cnpj===null)return;
+   const address=prompt("Endereço:",company.address||"");if(address===null)return;
+   const neighborhood=prompt("Bairro:",company.neighborhood||"");if(neighborhood===null)return;
+   const city=prompt("Cidade:",company.city||"");if(city===null)return;
+   try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,cnpj,address,neighborhood,city})});message("Dados cadastrais atualizados.");await loadCompanyData();}catch(err){message(err.message,true);}
+  });row.appendChild(edit);
+  if(company.contract?.fileName){const view=document.createElement("button");view.type="button";view.textContent="Ver contrato";view.addEventListener("click",async()=>{try{await openCompanyContract(company._id);}catch(err){message(err.message,true);}});row.appendChild(view);}
+  box.appendChild(row);
+ }catch(err){message(err.message,true);}
+}
 async function loadCompaniesList() {
   try {
     const companies = await api("/companies");

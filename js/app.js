@@ -307,7 +307,7 @@ function renderDashboard(){
   dashboardKpi("Movimentações no período",movements.length,"Registros no histórico"),
   dashboardKpi("Entradas",quantity(entries),"Quantidade total recebida"),
   dashboardKpi("Saídas",quantity(exits),"Quantidade total retirada"),
-  dashboardKpi("Saldo atual cadastrado",quantity(activeProducts),"Soma das quantidades dos produtos de consumo")
+  dashboardKpi("Saldo atual cadastrado",quantity(activeProducts.filter(x=>x.category!=="BEM")),"Soma das quantidades dos produtos de consumo")
  );
  const balance=$("dashboardMovementBalance");balance.replaceChildren(dashboardTable([
   {action:"Entradas",count:entries.length,total:quantity(entries)},

@@ -9,6 +9,20 @@ async function api(path, options={}) {
   if(!response.ok) throw new Error(data.message||"Não foi possível concluir a operação.");
   return data;
 }
+async function readCompanyContract() {
+  const file = $("companyContract")?.files?.[0];
+  if (!file) return null;
+  if (file.type !== "application/pdf" || file.size > 8 * 1024 * 1024) throw new Error("Escolha um PDF válido de até 8 MB.");
+  const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.onerror = () => reject(new Error("Não foi possível ler o contrato.")); reader.readAsDataURL(file); });
+  return { fileName: file.name, mimeType: file.type, data };
+}
+async function openCompanyContract(companyId) {
+  const response = await fetch(API + "/companies/" + companyId + "/contract", { headers: token ? { Authorization: "Bearer " + token } : {} });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message || "Não foi possível abrir o contrato."); }
+  const url = URL.createObjectURL(await response.blob()); const tab = window.open(url, "_blank", "noopener");
+  if (!tab) { const link = document.createElement("a"); link.href = url; link.download = "contrato-" + companyId + ".pdf"; link.click(); }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 function showPending(user) {
   currentUser=user; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
   $("pendingMessage").textContent="Olá, "+user.name+". Sua solicitação para a empresa selecionada está aguardando aprovação. Você não pode acessar o estoque, entregas ou relatórios enquanto não for aprovado.";
@@ -106,6 +120,11 @@ $("companyForm").addEventListener("submit", async e => {
       body: JSON.stringify({
         name: $("companyName").value,
         slug: $("companySlug").value,
+        cnpj: $("companyCnpj").value,
+        address: $("companyAddress").value,
+        neighborhood: $("companyNeighborhood").value,
+        city: $("companyCity").value,
+        contract: await readCompanyContract(),
         adminName: $("companyAdminName").value,
         email: $("companyAdminEmail").value,
         password: $("companyAdminPassword").value
@@ -141,10 +160,11 @@ function renderGlobalCompaniesUsersReport(){
  const makeBtn=(label,cls,fn)=>{const b=document.createElement("button");b.type="button";b.className="management-action "+(cls||"");b.textContent=label;b.addEventListener("click",fn);return b;};
  const stamp=d=>d?new Date(d).toLocaleString("pt-BR"):"Data não registrada";
  companies.forEach(company=>{
-  const info=document.createElement("div");info.className="management-info";info.textContent=company.name+" ("+company.slug+")";
+  const info=document.createElement("div");info.className="management-info";info.textContent=company.name+" ("+company.slug+") | CNPJ: "+(company.cnpj||"Não informado")+" | "+[company.address,company.neighborhood,company.city].filter(Boolean).join(", ");
   const state=document.createElement("span");state.className="management-status";state.textContent=company.active===false?"Pausada":"Ativa";
   const actions=document.createElement("div");actions.className="management-actions";
-  actions.append(makeBtn("Editar","",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadGlobalCompaniesUsersReport();message("Empresa atualizada.");}catch(err){message(err.message,true);}}));
+  actions.append(makeBtn("Editar","",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const cnpj=prompt("CNPJ (somente números ou formatado):",company.cnpj||"");if(cnpj===null)return;const address=prompt("Endereço:",company.address||"");if(address===null)return;const neighborhood=prompt("Bairro:",company.neighborhood||"");if(neighborhood===null)return;const city=prompt("Cidade:",company.city||"");if(city===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,cnpj,address,neighborhood,city,slug})});await loadGlobalCompaniesUsersReport();message("Empresa atualizada.");}catch(err){message(err.message,true);}}));
+   if(company.contract?.fileName)actions.append(makeBtn("Ver contrato","",async()=>{try{await openCompanyContract(company._id);}catch(err){message(err.message,true);}}));
   actions.append(makeBtn(company.active===false?"Retomar":"Pausar",company.active===false?"":"warning",async()=>{if(!confirm((company.active===false?"Retomar":"Pausar")+" a empresa "+company.name+"?"))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadGlobalCompaniesUsersReport();await loadGlobalCompanySelector();message("Situação atualizada.");}catch(err){message(err.message,true);}}));
   actions.append(makeBtn("Excluir","danger",async()=>{if(!confirm("Excluir "+company.name+"? Ela sairá da lista principal e ficará no relatório de excluídos com data e hora."))return;try{await api("/companies/"+company._id,{method:"DELETE"});await loadGlobalCompaniesUsersReport();await loadGlobalCompanySelector();message("Empresa movida para excluídos.");}catch(err){message(err.message,true);}}));
   const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Criada em: "+stamp(company.createdAt);
@@ -187,7 +207,8 @@ async function loadCompaniesList() {
     if (!companies.length) { box.textContent = "Nenhuma empresa cadastrada."; return; }
     companies.forEach(company => {
       const item=document.createElement("div");item.className="management-row";
-      const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa");item.appendChild(label);
+      const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa")+" | CNPJ: "+(company.cnpj||"—")+" | "+[company.address,company.neighborhood,company.city].filter(Boolean).join(", ");item.appendChild(label);
+      if(company.contract?.fileName){const contract=document.createElement("button");contract.type="button";contract.textContent="Ver contrato";contract.addEventListener("click",async()=>{try{await openCompanyContract(company._id);}catch(err){message(err.message,true);}});item.appendChild(contract);}
       const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadCompaniesList();message("Empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(edit);
       const action=document.createElement("button");action.type="button";action.textContent=company.active===false?"Reativar":"Excluir";action.className=company.active===false?"":"danger";action.addEventListener("click",async()=>{if(!confirm((company.active===false?"Reativar":"Desativar")+" a empresa "+company.name+"?"))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadCompaniesList();await loadGlobalCompanySelector();message("Situação da empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(action);box.appendChild(item);
     });

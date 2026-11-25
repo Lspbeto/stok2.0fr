@@ -1124,7 +1124,7 @@ async function loadReports(){
   $("reportStatus").textContent="Consultando dados autorizados...";
   const all=currentUser.role==="superadmin"&&($("reportAllCompanies").checked||!selectedCompanyId);
   const query=all?"":currentUser.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
-  const data=await api("/reports/overview"+query);latestReportData=data;
+  const data=await api("/reports/overview"+query,{headers:all?{"X-Company-Id":""}:{}});latestReportData=data;
   const summary=$("reportSummary");summary.replaceChildren();
   const counts=[["Empresas",data.summary?.companies??data.companies?.length??0],["Usuários",data.summary?.users??data.users?.length??0],["Produtos",data.summary?.products??data.products?.length??0],["Movimentações",data.summary?.movements??data.movements?.length??0],["Prestações",data.accountEntries?.length||0],["Atividades",data.activities?.length||0]];
   counts.forEach(([label,value])=>{const card=document.createElement("div");card.className="report-kpi";const strong=document.createElement("strong");strong.textContent=value;const span=document.createElement("span");span.textContent=label;card.append(strong,span);summary.appendChild(card);});

@@ -223,7 +223,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}
   if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
-  if(b.dataset.tab==="chat")loadChatMessages();
+  if(b.dataset.tab==="chat"){loadChatContacts();loadChatMessages();}
   if(b.dataset.tab==="approvals")loadPendingUsers();
   if(b.dataset.tab==="authorizations")loadAuthorizations();
   if(b.dataset.tab==="activities")loadActivities();
@@ -695,6 +695,30 @@ async function loadChatCompanies(){
 let activeChatConversation="empresa";
 let activeChatReply=null;
 let chatChannels=[];
+
+async function loadChatContacts(){
+ try{
+  if(!$("chatCompany").value)return;
+  const query=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
+  const users=await api("/chat/contacts"+query),select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
+  select.replaceChildren();
+  users.forEach(user=>{const option=document.createElement("option");option.value=user._id;option.textContent=user.name+" — "+user.sector+" ("+user.role+")";option.selected=previous.has(user._id);select.appendChild(option);});
+ }catch(err){message(err.message,true);}
+}
+async function createChatConversation(type){
+ try{
+  const participants=[...$("chatContacts").selectedOptions].map(x=>x.value);
+  if(type==="DIRECT"&&participants.length!==1){message("Selecione exatamente uma pessoa para a conversa privada.",true);return;}
+  if(type==="GROUP"&&participants.length<1){message("Selecione pelo menos uma pessoa para o grupo.",true);return;}
+  const payload={type,participants,name:$("chatGroupName").value};
+  if(currentUser.role==="superadmin")payload.companyId=$("chatCompany").value;
+  const created=await api("/chat/conversations",{method:"POST",body:JSON.stringify(payload)});
+  activeChatConversation=created.channelKey;await loadChatMessages();
+  message(type==="DIRECT"?"Conversa privada criada.":"Grupo criado.");
+ }catch(err){message(err.message,true);}
+}
+$("createDirectChat").addEventListener("click",()=>createChatConversation("DIRECT"));
+$("createGroupChat").addEventListener("click",()=>createChatConversation("GROUP"));
 async function loadChatMessages(){
  try{
   if(!$("chatCompany").value)return;
@@ -738,7 +762,7 @@ async function loadChatMessages(){
   box.scrollTop=box.scrollHeight;
  }catch(err){message(err.message,true);}
 }
-$("chatCompany").addEventListener("change",()=>{activeChatConversation="empresa";loadChatMessages();});
+$("chatCompany").addEventListener("change",()=>{activeChatConversation="empresa";loadChatContacts();loadChatMessages();});
 $("chatConversation").addEventListener("change",()=>{activeChatConversation=$("chatConversation").value;loadChatMessages();});
 $("chatCancelReply").addEventListener("click",()=>{activeChatReply=null;$("chatReplyInfo").hidden=true;});
 $("refreshChat").addEventListener("click",loadChatMessages);

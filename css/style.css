@@ -590,3 +590,162 @@ body > main.container > header.brand > p{
     height:100px;
   }
 }
+
+/* Restaura o visual simples e equilibrado da tela de acesso usado antes dos ajustes recentes. */
+body:has(#login:not([hidden])) > main.container,
+body:has(#firstSetupScreen:not([hidden])) > main.container,
+body:has(#registerScreen:not([hidden])) > main.container,
+body:has(#temporaryScreen:not([hidden])) > main.container,
+body:has(#forgotScreen:not([hidden])) > main.container,
+body:has(#resetScreen:not([hidden])) > main.container,
+body:has(#pendingScreen:not([hidden])) > main.container{
+  display:block !important;
+  min-height:0 !important;
+  max-width:1280px !important;
+  width:auto !important;
+  margin:24px auto !important;
+  padding:0 20px !important;
+}
+body:has(#login:not([hidden])) > main.container > header.brand,
+body:has(#firstSetupScreen:not([hidden])) > main.container > header.brand,
+body:has(#registerScreen:not([hidden])) > main.container > header.brand,
+body:has(#temporaryScreen:not([hidden])) > main.container > header.brand,
+body:has(#forgotScreen:not([hidden])) > main.container > header.brand,
+body:has(#resetScreen:not([hidden])) > main.container > header.brand,
+body:has(#pendingScreen:not([hidden])) > main.container > header.brand{
+  position:static !important;
+  left:auto !important;
+  right:auto !important;
+  transform:none !important;
+  display:block !important;
+  width:auto !important;
+  max-width:none !important;
+  margin:0 auto 22px !important;
+  padding:0 !important;
+  text-align:center !important;
+}
+body:has(#login:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#firstSetupScreen:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#registerScreen:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#temporaryScreen:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#forgotScreen:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#resetScreen:not([hidden])) > main.container > header.brand > .brand-mark,
+body:has(#pendingScreen:not([hidden])) > main.container > header.brand > .brand-mark{
+  display:inline-block !important;
+  width:auto !important;
+  margin:0 !important;
+  text-align:inherit !important;
+}
+body:has(#login:not([hidden])) > main.container > header.brand > p,
+body:has(#firstSetupScreen:not([hidden])) > main.container > header.brand > p,
+body:has(#registerScreen:not([hidden])) > main.container > header.brand > p,
+body:has(#temporaryScreen:not([hidden])) > main.container > header.brand > p,
+body:has(#forgotScreen:not([hidden])) > main.container > header.brand > p,
+body:has(#resetScreen:not([hidden])) > main.container > header.brand > p,
+body:has(#pendingScreen:not([hidden])) > main.container > header.brand > p{
+  width:auto !important;
+  margin:6px 0 !important;
+  text-align:center !important;
+}
+.login-card,
+#login.login-card{
+  display:block !important;
+  width:min(100%,430px) !important;
+  margin:28px auto !important;
+  padding:32px !important;
+  border:1px solid var(--line) !important;
+  border-radius:9px !important;
+  background:#fff !important;
+  box-shadow:0 18px 48px #1d35571a !important;
+  text-align:left !important;
+}
+.login-symbol,
+#login.login-card > .login-symbol{
+  display:grid !important;
+  flex:none !important;
+  place-items:center !important;
+  width:46px !important;
+  height:46px !important;
+  margin:0 0 16px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:9px !important;
+  background:linear-gradient(140deg,#1d4fc4,#31b5a2) !important;
+  box-shadow:none !important;
+  overflow:hidden !important;
+}
+.login-symbol img,
+#login.login-card > .login-symbol img{
+  display:block !important;
+  width:32px !important;
+  height:32px !important;
+  max-width:32px !important;
+  margin:0 !important;
+  object-fit:contain !important;
+}
+#login.login-card h2,
+.login-card h2{
+  width:auto !important;
+  margin:0 0 6px !important;
+  padding:0 !important;
+  color:#172b52 !important;
+  font-size:inherit !important;
+  line-height:normal !important;
+  text-align:left !important;
+}
+#login.login-card > .muted,
+.login-card > .muted{
+  width:auto !important;
+  margin:0 0 13px !important;
+  color:var(--muted) !important;
+  text-align:left !important;
+}
+#login.login-card #loginForm,
+.login-card form{
+  display:grid !important;
+  width:100% !important;
+  gap:12px !important;
+  align-items:stretch !important;
+  text-align:left !important;
+}
+#login.login-card #loginForm > label,
+.login-card label{
+  display:grid !important;
+  width:auto !important;
+  margin:8px 0 !important;
+  gap:7px !important;
+  text-align:left !important;
+}
+#login.login-card #loginForm > label > input,
+#login.login-card #loginForm .password-field,
+#login.login-card #loginForm .password-field input{
+  width:100% !important;
+  max-width:none !important;
+  text-align:left !important;
+}
+#login.login-card #loginForm .login-submit,
+.login-card .login-submit{
+  width:100% !important;
+  min-height:0 !important;
+  align-self:stretch !important;
+  border-radius:7px !important;
+  box-shadow:none !important;
+}
+#login.login-card > .register-link,
+#login.login-card > .login-note{
+  align-self:auto !important;
+  text-align:center !important;
+}
+@media(max-width:680px){
+  body:has(#login:not([hidden])) > main.container,
+  body:has(#firstSetupScreen:not([hidden])) > main.container,
+  body:has(#registerScreen:not([hidden])) > main.container,
+  body:has(#temporaryScreen:not([hidden])) > main.container,
+  body:has(#forgotScreen:not([hidden])) > main.container,
+  body:has(#resetScreen:not([hidden])) > main.container,
+  body:has(#pendingScreen:not([hidden])) > main.container{
+    margin:12px auto !important;
+    padding:0 12px !important;
+  }
+  .login-card,#login.login-card{padding:24px !important}
+}

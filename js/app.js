@@ -23,7 +23,7 @@ function showLoggedIn(user) {
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
-  $("createTab").hidden=!isAdmin; $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+  $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
@@ -219,6 +219,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="globalReport"&&currentUser?.role==="superadmin")loadGlobalCompaniesUsersReport();
+  if(b.dataset.tab==="dashboard")loadDashboard();
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}
@@ -244,7 +245,7 @@ async function loadGlobalCompanySelector(){
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
     $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
     if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
-    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();
+    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();if(document.querySelector("[data-tab=dashboard].active"))loadDashboard();
    });
   }
   select.replaceChildren();
@@ -256,6 +257,71 @@ async function loadGlobalCompanySelector(){
   if(selectedCompanyId){loadSectors();}else message("Administrador geral: selecione uma empresa para cadastrar setores e usuários.");
  }catch(err){message(err.message,true);}
 }
+
+// Painel de gestão: usa somente dados filtrados e autorizados pela API.
+let dashboardData=null;
+function dashboardDate(value){if(!value)return "Nunca";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("pt-BR");}
+function dashboardKpi(label,value,detail){const card=document.createElement("article");card.className="dashboard-kpi";const strong=document.createElement("strong");strong.textContent=String(value);const title=document.createElement("span");title.textContent=label;const note=document.createElement("small");note.textContent=detail||"";card.append(strong,title,note);return card;}
+function dashboardTable(rows,columns){const table=document.createElement("table"),head=document.createElement("thead"),hr=document.createElement("tr");columns.forEach(c=>{const th=document.createElement("th");th.textContent=c.label;hr.appendChild(th);});head.appendChild(hr);table.appendChild(head);const body=document.createElement("tbody");rows.forEach(row=>{const tr=document.createElement("tr");columns.forEach(c=>{const td=document.createElement("td");td.textContent=String(c.value(row)??"—");tr.appendChild(td);});body.appendChild(tr);});if(!rows.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=columns.length;td.textContent="Nenhum registro para os filtros selecionados.";tr.appendChild(td);body.appendChild(tr);}table.appendChild(body);return table;}
+async function loadDashboard(){
+ const status=$("dashboardStatus");if(!status)return;
+ try{
+  status.textContent="Consultando os dados autorizados...";
+  if(currentUser?.role==="superadmin"&&!selectedCompanyId){status.textContent="Selecione uma empresa no seletor de Administração Geral para consultar o painel.";return;}
+  const query=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const [data,sectors]=await Promise.all([api("/reports/overview"+query),api("/sectors")]);
+  dashboardData=data;
+  const sectorSelect=$("dashboardSector"),previous=sectorSelect.value;sectorSelect.replaceChildren();
+  const all=document.createElement("option");all.value="";all.textContent="Todos os setores permitidos";sectorSelect.appendChild(all);
+  sectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sectorSelect.appendChild(o);});
+  if(currentUser?.role==="admin_setor"){sectorSelect.value=currentUser.sector||"";sectorSelect.disabled=true;}
+  else if(sectors.some(s=>s.name===previous&&s.active!==false))sectorSelect.value=previous;
+  renderDashboard();
+  status.textContent="Painel atualizado em "+new Date().toLocaleString("pt-BR")+". Escopo: "+(data.scope==="SECTOR"?"seu setor":data.scope==="ALL_COMPANIES"?"todas as empresas":"empresa selecionada")+".";
+ }catch(err){status.textContent=err.message;message(err.message,true);}
+}
+function renderDashboard(){
+ if(!dashboardData)return;
+ const from=$("dashboardFrom").value?new Date($("dashboardFrom").value+"T00:00:00"):null;
+ const to=$("dashboardTo").value?new Date($("dashboardTo").value+"T23:59:59.999"):null;
+ const sector=$("dashboardSector").value;
+ const inRange=row=>{const d=new Date(row.createdAt||0);return (!from||d>=from)&&(!to||d<=to)&&(!sector||[row.sector,row.sourceSector,row.destinationSector,row.actionSector,row.createdSector,row.responsibleSector].includes(sector));};
+ const movements=(dashboardData.movements||[]).filter(inRange);
+ const users=(dashboardData.users||[]).filter(x=>!sector||x.sector===sector);
+ const products=(dashboardData.products||[]).filter(x=>!sector||x.responsibleSector===sector);
+ const entries=movements.filter(x=>x.action==="ENTRADA"),exits=movements.filter(x=>String(x.action||"").startsWith("SAIDA"));
+ const quantity=rows=>rows.reduce((sum,x)=>sum+Number(x.quantity||0),0);
+ const registrations=$("dashboardRegistrations");registrations.replaceChildren();
+ const sectorsInScope=new Set(users.map(x=>x.sector).filter(Boolean));
+ const activeUsers=users.filter(x=>x.active!==false);
+ const activeProducts=products.filter(x=>x.active!==false);
+ const roles={admin:"Administradores da empresa",admin_setor:"Administradores de setor",operador:"Operadores"};
+ const roleCounts=Object.keys(roles).map(role=>({role,label:roles[role],count:activeUsers.filter(x=>x.role===role).length}));
+ registrations.appendChild(dashboardTable([
+  {label:"Setores com usuários",value:sectorsInScope.size},
+  {label:"Usuários ativos",value:activeUsers.length},
+  {label:"Produtos e bens ativos",value:activeProducts.length},
+  ...roleCounts.map(x=>({label:x.label,value:x.count}))
+ ],[{label:"Cadastro",value:x=>x.label},{label:"Quantidade",value:x=>x.value}]));
+ const kpis=$("dashboardKpis");kpis.replaceChildren(
+  dashboardKpi("Movimentações no período",movements.length,"Registros no histórico"),
+  dashboardKpi("Entradas",quantity(entries),"Quantidade total recebida"),
+  dashboardKpi("Saídas",quantity(exits),"Quantidade total retirada"),
+  dashboardKpi("Saldo atual cadastrado",quantity(activeProducts.filter(x=>x.category!=="BEM")),"Soma das quantidades dos produtos de consumo")
+ );
+ const balance=$("dashboardMovementBalance");balance.replaceChildren(dashboardTable([
+  {action:"Entradas",count:entries.length,total:quantity(entries)},
+  {action:"Saídas",count:exits.length,total:quantity(exits)},
+  {action:"Transferências",count:movements.filter(x=>/TRANSFER|ENTREGA_SETOR/.test(x.action||"")).length,total:quantity(movements.filter(x=>/TRANSFER|ENTREGA_SETOR/.test(x.action||"")))},
+  {action:"Desfazimentos",count:movements.filter(x=>x.action==="DESFAZIMENTO").length,total:quantity(movements.filter(x=>x.action==="DESFAZIMENTO"))}
+ ],[{label:"Operação",value:x=>x.action},{label:"Registros",value:x=>x.count},{label:"Quantidade",value:x=>x.total}]));
+ const access=$("dashboardAccessTable");access.replaceChildren(dashboardTable(users,[{label:"Usuário",value:x=>x.name},{label:"E-mail",value:x=>x.email},{label:"Perfil",value:x=>roles[x.role]||x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"},{label:"Último acesso",value:x=>dashboardDate(x.lastLoginAt)},{label:"Total de acessos",value:x=>x.loginCount||0}]));
+}
+$("dashboardRefresh").addEventListener("click",loadDashboard);
+$("dashboardSector").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
+$("dashboardFrom").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
+$("dashboardTo").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
+
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
 
 // Carrega setores oficiais e preenche os campos de seleção da interface.

@@ -226,3 +226,20 @@
   margin:2px!important;
   border-radius:4px!important;
 }
+
+
+/* Central de atividades: quadro Kanban responsivo */
+.activity-form{margin:16px 0;padding:14px;border:1px solid var(--border,#d8dee8);border-radius:12px;background:var(--surface,#fff)}
+.activity-description{grid-column:1/-1}
+.activity-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+.activity-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start}
+.activity-column{min-width:0;padding:12px;border:1px solid var(--border,#d8dee8);border-radius:12px;background:var(--surface-muted,#f6f8fb)}
+.activity-column h3{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;font-size:15px}
+.activity-column h3 span{font-size:12px;border-radius:20px;padding:3px 8px;background:#e6edf7;color:#173b67}
+.activity-list{display:grid;gap:10px;min-height:60px}
+.activity-card{display:grid;gap:7px;padding:12px;border:1px solid var(--border,#d8dee8);border-radius:10px;background:var(--surface,#fff);box-shadow:0 2px 7px rgba(16,24,40,.04)}
+.activity-card h4{margin:0;font-size:14px;overflow-wrap:anywhere}
+.activity-card p{margin:0;color:var(--muted,#667085);font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+.activity-card small{font-size:11px;color:var(--muted,#667085);overflow-wrap:anywhere}
+.activity-card button{font-size:11px;padding:6px 8px;min-height:28px}
+@media(max-width:850px){.activity-board{grid-template-columns:1fr}.activity-column{min-height:100px}.activity-form{grid-template-columns:1fr}.activity-description{grid-column:auto}}

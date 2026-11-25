@@ -10,10 +10,19 @@ async function api(path, options={}) {
   return data;
 }
 async function readCompanyContract() {
-  const file = $("companyContract")?.files?.[0];\n  if (!file) return null;
-  if (file.type !== "application/pdf" || file.size > 8 * 1024 * 1024) throw new Error("Escolha um PDF válido de até 8 MB.");\n  const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.onerror = () => reject(new Error("Não foi possível ler o contrato.")); reader.readAsDataURL(file); });\n  return { fileName: file.name, mimeType: file.type, data };
+  const file = $("companyContract")?.files?.[0];
+  if (!file) return null;
+  if (file.type !== "application/pdf" || file.size > 8 * 1024 * 1024) throw new Error("Escolha um PDF válido de até 8 MB.");
+  const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1]); reader.onerror = () => reject(new Error("Não foi possível ler o contrato.")); reader.readAsDataURL(file); });
+  return { fileName: file.name, mimeType: file.type, data };
 }
-async function openCompanyContract(companyId) {\n  const response = await fetch(API + "/companies/" + companyId + "/contract", { headers: token ? { Authorization: "Bearer " + token } : {} });\n  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message || "Não foi possível abrir o contrato."); }\n  const url = URL.createObjectURL(await response.blob()); const tab = window.open(url, "_blank", "noopener");\n  if (!tab) { const link = document.createElement("a"); link.href = url; link.download = "contrato-" + companyId + ".pdf"; link.click(); }\n  setTimeout(() => URL.revokeObjectURL(url), 60000);\n}
+async function openCompanyContract(companyId) {
+  const response = await fetch(API + "/companies/" + companyId + "/contract", { headers: token ? { Authorization: "Bearer " + token } : {} });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message || "Não foi possível abrir o contrato."); }
+  const url = URL.createObjectURL(await response.blob()); const tab = window.open(url, "_blank", "noopener");
+  if (!tab) { const link = document.createElement("a"); link.href = url; link.download = "contrato-" + companyId + ".pdf"; link.click(); }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 function showPending(user) {
   currentUser=user; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=true; $("pendingScreen").hidden=false;
   $("pendingMessage").textContent="Olá, "+user.name+". Sua solicitação para a empresa selecionada está aguardando aprovação. Você não pode acessar o estoque, entregas ou relatórios enquanto não for aprovado.";

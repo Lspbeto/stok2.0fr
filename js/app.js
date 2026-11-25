@@ -210,7 +210,7 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
-  const companyRequired=["products","deliveries","history","authorizations"].includes(b.dataset.tab);
+  const companyRequired=["products","deliveries","history","authorizations","activities"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId){
     message("Administrador geral: escolha uma empresa no campo Empresa em administração antes de abrir esta área.",true);
     return;
@@ -226,6 +226,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="chat")loadChatMessages();
   if(b.dataset.tab==="approvals")loadPendingUsers();
   if(b.dataset.tab==="authorizations")loadAuthorizations();
+  if(b.dataset.tab==="activities")loadActivities();
 }));
 // O administrador geral escolhe a empresa cujos dados deseja administrar.
 async function loadGlobalCompanySelector(){
@@ -817,3 +818,69 @@ loadPublicCompanies();
     token = null;
   }
 })();
+
+let activityCache=[];
+async function loadActivities(){
+ try{
+  const query=currentUser?.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const [rows,sectors,assignees]=await Promise.all([api("/activities"+query),api("/sectors"),api("/activities/assignees"+query)]);
+  activityCache=rows;
+  const sectorSelect=$("activitySector"),previous=sectorSelect.value;
+  sectorSelect.replaceChildren();
+  const allowedSectors=currentUser?.role==="superadmin"||currentUser?.role==="admin"?sectors:sectors.filter(x=>x.name===currentUser?.sector);
+  allowedSectors.filter(x=>x.active!==false).forEach(x=>{const o=document.createElement("option");o.value=x.name;o.textContent=x.name;sectorSelect.appendChild(o);});
+  if(previous&&[...sectorSelect.options].some(o=>o.value===previous))sectorSelect.value=previous;
+  if(currentUser?.role==="operador"||currentUser?.role==="admin_setor")sectorSelect.value=currentUser.sector||"";
+  const fillAssignees=()=>{
+   const select=$("activityAssignees");select.replaceChildren();
+   const sector=sectorSelect.value;
+   assignees.filter(x=>x.sector===sector).forEach(x=>{const o=document.createElement("option");o.value=x._id;o.textContent=x.name+" — "+x.role;select.appendChild(o);});
+  };
+  sectorSelect.onchange=fillAssignees;fillAssignees();
+  renderActivities();
+ }catch(err){message(err.message,true);}
+}
+function renderActivities(){
+ const groups={A_FAZER:$("activityTodo"),FAZENDO:$("activityDoing"),FEITO:$("activityDone")};
+ Object.values(groups).forEach(x=>x.replaceChildren());
+ const counts={A_FAZER:0,FAZENDO:0,FEITO:0};
+ activityCache.forEach(item=>{
+  const status=item.status||"A_FAZER";if(!groups[status])return;counts[status]++;
+  const card=document.createElement("article");card.className="activity-card";
+  const title=document.createElement("h4");title.textContent=item.title;
+  const desc=document.createElement("p");desc.textContent=item.description||"Sem descrição";
+  const meta=document.createElement("small");meta.textContent="Setor: "+item.sector+" | Prioridade: "+item.priority+" | Criada por: "+item.createdByName;
+  const people=document.createElement("small");people.textContent="Responsáveis: "+((item.assignedNames||[]).join(", ")||"Não atribuída");
+  const due=document.createElement("small");due.textContent="Prazo: "+(item.dueDate?new Date(item.dueDate).toLocaleDateString("pt-BR"):"Não definido");
+  card.append(title,desc,meta,people,due);
+  if(status!=="A_FAZER")card.appendChild(activityAction("← A fazer",()=>changeActivity(item,"A_FAZER"),"secondary"));
+  if(status!=="FAZENDO")card.appendChild(activityAction("Fazendo",()=>changeActivity(item,"FAZENDO"),"secondary"));
+  if(status!=="FEITO")card.appendChild(activityAction("Concluir",()=>changeActivity(item,"FEITO"),""));
+  if(["admin","admin_setor","superadmin"].includes(currentUser?.role))card.appendChild(activityAction("Excluir",()=>deleteActivity(item),"danger"));
+  groups[status].appendChild(card);
+ });
+ $("activityCountTodo").textContent=counts.A_FAZER;$("activityCountDoing").textContent=counts.FAZENDO;$("activityCountDone").textContent=counts.FEITO;
+ $("activitySummary").textContent=activityCache.length+" atividade(s) visível(is).";
+}
+function activityAction(label,fn,cls){
+ const b=document.createElement("button");b.type="button";b.textContent=label;b.className=cls||"";b.addEventListener("click",fn);return b;
+}
+async function changeActivity(item,status){
+ try{await api("/activities/"+item._id,{method:"PATCH",body:JSON.stringify({status})});await loadActivities();message("Situação da atividade atualizada.");}
+ catch(err){message(err.message,true);}
+}
+async function deleteActivity(item){
+ if(!confirm("Excluir logicamente a atividade '"+item.title+"'? O histórico será preservado."))return;
+ try{const d=await api("/activities/"+item._id,{method:"DELETE"});await loadActivities();message(d.message);}
+ catch(err){message(err.message,true);}
+}
+$("activityForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ try{
+  const assignedTo=[...$("activityAssignees").selectedOptions].map(o=>o.value);
+  const data={title:$("activityTitle").value,description:$("activityDescription").value,sector:$("activitySector").value,priority:$("activityPriority").value,dueDate:$("activityDueDate").value||null,assignedTo};
+  const result=await api("/activities",{method:"POST",body:JSON.stringify(data)});
+  e.target.reset();await loadActivities();message("Atividade criada e registrada. "+(result.title||""));
+ }catch(err){message(err.message,true);}
+});
+$("activityRefresh").addEventListener("click",loadActivities);

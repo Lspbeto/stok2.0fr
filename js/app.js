@@ -1108,15 +1108,80 @@ $("activityRefresh").addEventListener("click",loadActivities);
 let latestReportData=null;
 function reportDate(value){return value?new Date(value).toLocaleString("pt-BR"):"—";}
 function reportCell(value){return value===null||value===undefined||value===""?"—":String(value);}
-function renderReportTable(title,rows,columns){
+function reportActionsAllowed(row){
+ if(!currentUser||!["superadmin","admin"].includes(currentUser.role))return false;
+ const companyId=String(row.companyId?._id||row.companyId||row._id||"");
+ if(currentUser.role==="admin")return companyId===String(currentUser.companyId?._id||currentUser.companyId||"");
+ const allCompanies=$("reportAllCompanies")?.checked||!selectedCompanyId;
+ return allCompanies||companyId===String(selectedCompanyId);
+}
+async function reportScopedApi(row,path,options={}){
+ const companyId=String(row.companyId?._id||row.companyId||row._id||"");
+ const headers={...(options.headers||{})};
+ if(currentUser?.role==="superadmin"&&companyId)headers["X-Company-Id"]=companyId;
+ return api(path,{...options,headers});
+}
+async function editReportUser(row){
+ const name=prompt("Nome:",row.name||"");if(name===null)return;
+ const email=prompt("E-mail:",row.email||"");if(email===null)return;
+ const sector=prompt("Setor:",row.sector||"");if(sector===null)return;
+ try{const result=await reportScopedApi(row,"/users/"+row._id,{method:"PATCH",body:JSON.stringify({name,email,sector})});message(result.message||"Usuário atualizado.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+async function deleteReportUser(row){
+ if(!confirm("Excluir o usuário "+(row.name||"")+"? O registro será preservado para auditoria."))return;
+ try{const result=await reportScopedApi(row,"/users/"+row._id,{method:"DELETE"});message(result.message||"Usuário excluído.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+async function editReportMovement(row){
+ const action=prompt("Operação:",row.action||"");if(action===null)return;
+ const quantity=prompt("Quantidade:",row.quantity??"");if(quantity===null)return;
+ const details=prompt("Detalhes:",row.details||"");if(details===null)return;
+ try{const result=await reportScopedApi(row,"/movements/"+row._id,{method:"PATCH",body:JSON.stringify({action,quantity:Number(quantity),details})});message(result.message||"Movimentação corrigida.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+async function deleteReportMovement(row){
+ if(!confirm("Excluir esta movimentação do relatório? O histórico original ficará preservado para auditoria."))return;
+ try{const result=await reportScopedApi(row,"/movements/"+row._id,{method:"DELETE"});message(result.message||"Movimentação excluída.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+async function editReportCompany(row){
+ const name=prompt("Nome da empresa:",row.name||"");if(name===null)return;
+ const cnpj=prompt("CNPJ:",row.cnpj||"");if(cnpj===null)return;
+ const address=prompt("Endereço:",row.address||"");if(address===null)return;
+ const neighborhood=prompt("Bairro:",row.neighborhood||"");if(neighborhood===null)return;
+ const city=prompt("Cidade:",row.city||"");if(city===null)return;
+ try{const result=await reportScopedApi(row,"/companies/"+row._id,{method:"PATCH",body:JSON.stringify({name,cnpj,address,neighborhood,city})});message(result.message||"Empresa atualizada.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+async function deleteReportCompany(row){
+ if(!confirm("Excluir a empresa "+(row.name||"")+"? Os acessos vinculados serão bloqueados e o registro ficará preservado."))return;
+ try{const result=await reportScopedApi(row,"/companies/"+row._id,{method:"DELETE"});message(result.message||"Empresa excluída.");await loadReports();}
+ catch(err){message(err.message,true);}
+}
+function renderReportTable(title,rows,columns,actions){
  const wrap=document.createElement("section");wrap.className="report-block";
  const heading=document.createElement("h3");heading.textContent=title+" ("+rows.length+")";wrap.appendChild(heading);
  if(!rows.length){const p=document.createElement("p");p.textContent="Nenhum registro encontrado.";wrap.appendChild(p);return wrap;}
  const table=document.createElement("div");table.className="table-wrap";
  const t=document.createElement("table"),thead=document.createElement("thead"),hr=document.createElement("tr");
- columns.forEach(c=>{const th=document.createElement("th");th.textContent=c.label;hr.appendChild(th);});thead.appendChild(hr);t.appendChild(thead);
+ columns.forEach(c=>{const th=document.createElement("th");th.textContent=c.label;hr.appendChild(th);});
+ if(actions){const th=document.createElement("th");th.textContent="Ações";hr.appendChild(th);}
+ thead.appendChild(hr);t.appendChild(thead);
  const body=document.createElement("tbody");
- rows.forEach(row=>{const tr=document.createElement("tr");columns.forEach(c=>{const td=document.createElement("td");td.textContent=reportCell(c.value(row));tr.appendChild(td);});body.appendChild(tr);});
+ rows.forEach(row=>{
+  const tr=document.createElement("tr");
+  columns.forEach(c=>{const td=document.createElement("td");td.textContent=reportCell(c.value(row));tr.appendChild(td);});
+  if(actions){
+   const td=document.createElement("td");
+   if(reportActionsAllowed(row)){
+    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",()=>actions.edit(row));td.appendChild(edit);
+    const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir";remove.className="danger";remove.addEventListener("click",()=>actions.remove(row));td.appendChild(remove);
+   }else td.textContent="Sem permissão";
+   tr.appendChild(td);
+  }
+  body.appendChild(tr);
+ });
  t.appendChild(body);table.appendChild(t);wrap.appendChild(table);return wrap;
 }
 async function loadReports(){
@@ -1131,11 +1196,12 @@ async function loadReports(){
   const tables=$("reportTables");tables.replaceChildren();
   const company={label:"Empresa",value:r=>r.companyName||"—"};
   tables.append(
-   renderReportTable("Usuários",data.users||[],[company,{label:"Nome",value:r=>r.name},{label:"E-mail",value:r=>r.email},{label:"Perfil",value:r=>r.role},{label:"Setor",value:r=>r.sector},{label:"Cadastro",value:r=>reportDate(r.createdAt)}]),
+   renderReportTable("Empresas",data.companies||[],[{label:"Empresa",value:r=>r.name},{label:"CNPJ",value:r=>r.cnpj},{label:"Cidade",value:r=>r.city},{label:"Situação",value:r=>r.active===false?"Inativa":"Ativa"}],{edit:editReportCompany,remove:deleteReportCompany}),
+   renderReportTable("Usuários",data.users||[],[company,{label:"Nome",value:r=>r.name},{label:"E-mail",value:r=>r.email},{label:"Perfil",value:r=>r.role},{label:"Setor",value:r=>r.sector},{label:"Cadastro",value:r=>reportDate(r.createdAt)}],{edit:editReportUser,remove:deleteReportUser}),
    renderReportTable("Produtos e bens",data.products||[],[company,{label:"Produto",value:r=>r.name},{label:"Tipo",value:r=>r.category},{label:"Setor responsável",value:r=>r.responsibleSector},{label:"Setor cadastro",value:r=>r.createdSector},{label:"Cadastrado por",value:r=>r.createdByName},{label:"Quantidade",value:r=>r.quantity},{label:"Data cadastro",value:r=>reportDate(r.createdAt)}]),
-   renderReportTable("Movimentações",data.movements||[],[company,{label:"Produto",value:r=>r.productName},{label:"Operação",value:r=>r.action},{label:"Quantidade",value:r=>r.quantity},{label:"Setor origem",value:r=>r.sourceSector},{label:"Setor destino",value:r=>r.destinationSector},{label:"Setor ação",value:r=>r.actionSector||r.sector},{label:"Solicitado por",value:r=>r.requestedByName},{label:"Movimentado por",value:r=>r.userName},{label:"Autorizado por",value:r=>r.authorizedByName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}]),
-   renderReportTable("Entregas",data.deliveries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável pelo registro",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}]),
-   renderReportTable("Prestação de contas",data.accountEntries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Tipo",value:r=>r.action+" "+(r.destination||"")},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)},{label:"Justificativa/detalhes",value:r=>r.details}]),
+   renderReportTable("Movimentações",data.movements||[],[company,{label:"Produto",value:r=>r.productName},{label:"Operação",value:r=>r.action},{label:"Quantidade",value:r=>r.quantity},{label:"Setor origem",value:r=>r.sourceSector},{label:"Setor destino",value:r=>r.destinationSector},{label:"Setor ação",value:r=>r.actionSector||r.sector},{label:"Solicitado por",value:r=>r.requestedByName},{label:"Movimentado por",value:r=>r.userName},{label:"Autorizado por",value:r=>r.authorizedByName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}],{edit:editReportMovement,remove:deleteReportMovement}),
+   renderReportTable("Entregas",data.deliveries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável pelo registro",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)}],{edit:editReportMovement,remove:deleteReportMovement}),
+   renderReportTable("Prestação de contas",data.accountEntries||[],[company,{label:"Produto",value:r=>r.productName},{label:"Tipo",value:r=>r.action+" "+(r.destination||"")},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável",value:r=>r.userName},{label:"Data/hora",value:r=>reportDate(r.createdAt)},{label:"Justificativa/detalhes",value:r=>r.details}],{edit:editReportMovement,remove:deleteReportMovement}),
    renderReportTable("Autorizações",data.authorizations||[],[company,{label:"Solicitação",value:r=>r.type},{label:"Produto",value:r=>r.productName},{label:"Solicitante",value:r=>r.requesterName},{label:"Setor",value:r=>r.requesterSector},{label:"Destino",value:r=>r.destinationSector},{label:"Status",value:r=>r.status},{label:"Decidido por",value:r=>r.decidedByName},{label:"Data",value:r=>reportDate(r.createdAt)}]),
    renderReportTable("Atividades",data.activities||[],[company,{label:"Atividade",value:r=>r.title},{label:"Situação",value:r=>r.status},{label:"Prioridade",value:r=>r.priority},{label:"Setor",value:r=>r.sector},{label:"Criada por",value:r=>r.createdByName},{label:"Responsáveis",value:r=>(r.assignedNames||[]).join(", ")},{label:"Prazo",value:r=>reportDate(r.dueDate)},{label:"Atualizada",value:r=>reportDate(r.updatedAt)}])
   );

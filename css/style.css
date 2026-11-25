@@ -314,3 +314,10 @@
 .activity-card button{min-height:30px;padding:5px 9px;border-radius:6px}
 .activity-card button:first-of-type{margin-top:2px}
 @media(max-width:850px){.activity-column{min-height:0}.activity-list{grid-auto-rows:auto}.activity-card{min-height:0;grid-template-rows:auto auto auto auto auto auto}}
+
+
+/* Tela de alteração da própria senha, acessível a todos os perfis. */
+#changePasswordPanel{margin:12px 0}
+#changePasswordPanel .form-grid{max-width:620px}
+#changePasswordPanel .form-grid label{display:grid;gap:6px}
+#changePasswordPanel .form-grid button{width:auto}

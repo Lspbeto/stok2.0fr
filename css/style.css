@@ -749,3 +749,17 @@ body:has(#pendingScreen:not([hidden])) > main.container > header.brand > p{
   }
   .login-card,#login.login-card{padding:24px !important}
 }
+
+/* Na tela de login, oculta somente o cabeçalho superior STOK. */
+body:has(#login:not([hidden])) > main.container > header.brand{
+  display:none !important;
+}
+#login .login-tagline{
+  display:block;
+  width:100%;
+  margin:0 auto 8px;
+  text-align:center;
+  color:var(--muted);
+  font-size:14px;
+  line-height:1.5;
+}

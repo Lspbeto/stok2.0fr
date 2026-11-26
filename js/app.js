@@ -68,6 +68,7 @@ function showLoggedIn(user) {
      ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab","authorizationsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
      $("profileRolePreview").hidden=true;
      $("managementReportFilter").hidden=true;
+     $("managementCreate").hidden=false;
      $("managementAuthorizations").hidden=false;
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
      $("managementHistory").hidden=false; $("managementCreate").hidden=true;
@@ -100,6 +101,11 @@ function showLoggedIn(user) {
      $("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="profile");
    }
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
+  $("createCompaniesTab").hidden=!isSuperAdmin;
+  $("createCompanyDataTab").hidden=user.role!=="admin";
+  $("companies").hidden=!isSuperAdmin;
+  $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
+  $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
@@ -278,6 +284,7 @@ async function loadCompanyData(){
   box.appendChild(row);
  }catch(err){message(err.message,true);}
 }
+$("companySearch")?.addEventListener("input",()=>{const q=$("companySearch").value.toLocaleLowerCase("pt-BR");$("companyList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
 async function loadCompaniesList() {
   try {
     const companies = await api("/companies");
@@ -339,6 +346,18 @@ if(resetToken){token=null;localStorage.removeItem("stok_token");$("app").hidden=
 $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/reset-password",{method:"POST",body:JSON.stringify({token:resetToken,password:$("resetPassword").value})});message(d.message);window.history.replaceState({},"",window.location.pathname);$("resetScreen").hidden=true;$("login").hidden=false;resetToken=null;e.target.reset();}catch(err){message(err.message,true);}});
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
+function setCreateSection(section){
+ const allowed={users:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),sectors:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),companies:currentUser?.role==="superadmin",companyData:currentUser?.role==="admin"};
+ $("createCompanyRequired").hidden=!(currentUser?.role==="superadmin"&&!selectedCompanyId);
+ if(!allowed[section])section=allowed.users?"users":allowed.sectors?"sectors":allowed.companies?"companies":"companyData";
+ ["users","sectors","companies","companyData"].forEach(key=>{const node=$(key);if(node)node.hidden=key!==section||!allowed[key];});
+ document.querySelectorAll("[data-create-section]").forEach(button=>button.classList.toggle("active",button.dataset.createSection===section));
+ if(section==="users")loadUsersList();
+ if(section==="sectors")loadSectors();
+ if(section==="companies"&&currentUser?.role==="superadmin")loadCompaniesList();
+ if(section==="companyData"&&currentUser?.role==="admin")loadCompanyData();
+}
+document.querySelectorAll("[data-create-section]").forEach(button=>button.addEventListener("click",()=>setCreateSection(button.dataset.createSection)));
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{
   const companyRequired=["products","deliveries","authorizations","activities"].includes(b.dataset.tab);
   if(currentUser?.role==="superadmin"&&companyRequired&&!selectedCompanyId&&!(b.dataset.tab==="reports"&&$("reportAllCompanies").checked)){
@@ -354,7 +373,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="dashboard")loadDashboard();
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
-  if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}
+  if(b.dataset.tab==="create"){setCreateSection("users");loadSectors();loadUsersList();if(currentUser?.role==="superadmin")loadCompaniesList();}
   if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
   if(b.dataset.tab==="chat"){loadChatCompanies();loadChatContacts();loadChatMessages();}
   if(b.dataset.tab==="approvals")loadPendingUsers();
@@ -551,6 +570,7 @@ async function loadSectors(){
    if(currentUser?.role==="superadmin")loadUsersList();
  }catch(err){message(err.message,true);}
 }
+$("sectorSearch")?.addEventListener("input",()=>{const q=$("sectorSearch").value.toLocaleLowerCase("pt-BR");$("sectorList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
 $("sectorForm").addEventListener("submit",async e=>{
  e.preventDefault();
  try{await api("/sectors",{method:"POST",body:JSON.stringify({name:$("sectorName").value})});$("sectorName").value="";await loadSectors();message("Setor criado e disponível nos cadastros.");}
@@ -917,7 +937,7 @@ $("restoreButton").addEventListener("click",async()=>{
 
 async function loadUsersList(){
  try{
-  if(currentUser?.role!=="superadmin"||!selectedCompanyId)return;
+  if(!["superadmin","admin"].includes(currentUser?.role)||(currentUser.role==="superadmin"&&!selectedCompanyId))return;
   const users=await api("/users"),box=$("userList");if(!box)return;box.replaceChildren();
   if(!users.length){box.textContent="Nenhum usuário cadastrado nesta empresa.";return;}
   users.forEach(user=>{
@@ -937,6 +957,7 @@ async function loadUsersList(){
   });
  }catch(err){message(err.message,true);}
 }
+$("userSearch")?.addEventListener("input",()=>{const q=$("userSearch").value.toLocaleLowerCase("pt-BR");$("userList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
 // Carrega empresas ativas para o cadastro.

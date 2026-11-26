@@ -351,3 +351,19 @@ input:focus,select:focus,textarea:focus{border-color:#4775e8;box-shadow:0 0 0 3p
 \n/* Cadastro completo da empresa e anexo do contrato. */\n.company-contract-field{grid-column:1/-1}.company-contract-field small{display:block;color:var(--muted);font-size:12px;margin-top:5px}.form-grid>label{min-width:0}\n
 /* Perfil do usuário e comparação de permissões. */
 .profile-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin:18px 0}.profile-detail{display:grid;gap:7px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fbfcff;min-width:0}.profile-detail span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.35px}.profile-detail strong{font-size:14px;overflow-wrap:anywhere;color:#243b5a}.profile-role-preview{margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}.profile-role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.profile-role-grid article{padding:14px;border:1px solid var(--line);border-radius:10px;background:#f8faff}.profile-role-grid h4{margin:0 0 7px;color:#244b8f}.profile-role-grid p{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}.profile-security{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}.profile-security h3{margin:0 0 5px}.profile-security p{margin:0}@media(max-width:520px){.profile-role-grid{grid-template-columns:1fr}.profile-security button{width:100%}}
+
+/* Centralização das áreas administrativas em uma tela única. */
+.management-home{padding:26px}
+.management-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}
+.management-heading h2{margin:5px 0 6px;font-size:25px;color:#1c3152}
+.management-heading p{margin:0;color:var(--muted);font-size:14px}
+.management-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.management-shortcut{display:grid;grid-template-columns:42px minmax(0,1fr) 18px;align-items:center;gap:12px;text-align:left;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#243b5a;min-width:0;box-shadow:0 2px 8px rgba(22,42,76,.035)}
+.management-shortcut:hover{border-color:#9db5ec;background:#f8faff;transform:translateY(-1px)}
+.management-shortcut-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:#eaf0ff;color:#2858bd;font-size:22px;font-weight:700}
+.management-shortcut strong,.management-shortcut small{display:block}
+.management-shortcut strong{font-size:14px;margin-bottom:5px}
+.management-shortcut small{font-size:11px;color:var(--muted);line-height:1.4}
+.management-arrow{font-size:24px;color:#7184a3}
+.management-back{margin:0 0 14px;padding:8px 12px;background:#eef3fc;color:#2858bd;border:1px solid #dce6f8;border-radius:8px;font-size:12px}
+@media(max-width:650px){.management-home{padding:15px}.management-shortcuts{grid-template-columns:1fr}.management-shortcut{padding:13px}.management-heading h2{font-size:21px}}

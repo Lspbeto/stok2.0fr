@@ -50,13 +50,28 @@ function showLoggedIn(user) {
   renderProfile(user);
    $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
-   $("productsTab").hidden=adminMain; $("deliveriesTab").hidden=adminMain; $("activitiesTab").hidden=adminMain; $("approvalsTab").hidden=true; $("authorizationsTab").hidden=false;
+   // Menu principal dos administradores: Perfil, Chat, Gerenciamento e Autorizações.
+   if(adminMain){
+     ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
+     $("managementTab").hidden=false; $("chatTab").hidden=false; $("authorizationsTab").hidden=false;
+   }else{
+     $("productsTab").hidden=false; $("deliveriesTab").hidden=false; $("activitiesTab").hidden=false;
+     $("authorizationsTab").hidden=false; $("approvalsTab").hidden=!isAdmin;
+   }
    $("managementReportFilter").hidden=!isSuperAdmin;
    $("createGroupChat").hidden=adminMain;
    $("managementAuthorizations").hidden=false;
    $("managementProducts").hidden=!adminMain; $("managementDeliveries").hidden=!adminMain;
    $("managementHistory").hidden=!["admin","superadmin","admin_setor"].includes(user.role);
    $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
+   $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
+   $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
+   if(adminMain){
+     document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));
+     $("managementTab").classList.add("active");
+     $("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="management");
+     if(isSuperAdmin)loadManagementCompanies();
+   }
    $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
    $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
    if(adminMain){document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));$("managementTab").classList.add("active");$("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="management");loadManagementCompanies();}

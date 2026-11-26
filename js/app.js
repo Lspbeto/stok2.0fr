@@ -430,6 +430,15 @@ function deriveDashboardSectors(data){
  (data.movements||[]).forEach(x=>{[x.sector,x.sourceSector,x.destinationSector,x.actionSector].filter(Boolean).forEach(v=>names.add(v));});
  return [...names].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(name=>({name,active:true}));
 }
+function ensureCompanyReportScope(data){
+ if(currentUser?.role!=="admin")return data;
+ const ownCompany=String(currentUser.companyId?._id||currentUser.companyId||"");
+ const responseCompany=String(data?.selectedCompanyId||"");
+ if(!ownCompany||data?.scope!=="COMPANY"||responseCompany!==ownCompany){
+  throw new Error("Consulta bloqueada: este relatório não confirmou o vínculo exclusivo com a sua empresa.");
+ }
+ return data;
+}
 async function loadDashboard(){
  const status=$("dashboardStatus");if(!status)return;
  try{
@@ -437,6 +446,7 @@ async function loadDashboard(){
   const allCompanies=currentUser?.role==="superadmin"&&!selectedCompanyId;
   const query=currentUser?.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
   const [data,sectors]=await Promise.all([api("/reports/overview"+query),allCompanies?Promise.resolve([]):api("/sectors")]);
+  ensureCompanyReportScope(data);
   dashboardData=data;
   dashboardSectors=sectors.length?sectors:deriveDashboardSectors(data);
   const sectorSelect=$("dashboardSector"),previous=sectorSelect.value;sectorSelect.replaceChildren();
@@ -1303,7 +1313,8 @@ async function loadReports(){
   $("reportStatus").textContent="Consultando dados autorizados...";
   const all=currentUser.role==="superadmin"&&($("reportAllCompanies").checked||!selectedCompanyId);
   const query=all?"":currentUser.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
-  const data=await api("/reports/overview"+query,{headers:all?{"X-Company-Id":""}:{}});latestReportData=data;
+  const data=await api("/reports/overview"+query,{headers:all?{"X-Company-Id":""}:{}});
+  ensureCompanyReportScope(data);latestReportData=data;
   const summary=$("reportSummary");summary.replaceChildren();
   const counts=[["Empresas",data.summary?.companies??data.companies?.length??0],["Usuários",data.summary?.users??data.users?.length??0],["Produtos",data.summary?.products??data.products?.length??0],["Movimentações",data.summary?.movements??data.movements?.length??0],["Prestações",data.accountEntries?.length||0],["Atividades",data.activities?.length||0]];
   counts.forEach(([label,value])=>{const card=document.createElement("div");card.className="report-kpi";const strong=document.createElement("strong");strong.textContent=value;const span=document.createElement("span");span.textContent=label;card.append(strong,span);summary.appendChild(card);});

@@ -399,9 +399,18 @@ async function loadGlobalCompanySelector(){
 
 // Painel de gestão: usa somente dados filtrados e autorizados pela API.
 let dashboardData=null;
+let dashboardSectors=[];
+let dashboardReportType="users";
 function dashboardDate(value){if(!value)return "Nunca";const d=new Date(value);return Number.isNaN(d.getTime())?"—":d.toLocaleString("pt-BR");}
 function dashboardKpi(label,value,detail){const card=document.createElement("article");card.className="dashboard-kpi";const strong=document.createElement("strong");strong.textContent=String(value);const title=document.createElement("span");title.textContent=label;const note=document.createElement("small");note.textContent=detail||"";card.append(strong,title,note);return card;}
 function dashboardTable(rows,columns){const table=document.createElement("table"),head=document.createElement("thead"),hr=document.createElement("tr");columns.forEach(c=>{const th=document.createElement("th");th.textContent=c.label;hr.appendChild(th);});head.appendChild(hr);table.appendChild(head);const body=document.createElement("tbody");rows.forEach(row=>{const tr=document.createElement("tr");columns.forEach(c=>{const td=document.createElement("td");td.textContent=String(c.value(row)??"—");tr.appendChild(td);});body.appendChild(tr);});if(!rows.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=columns.length;td.textContent="Nenhum registro para os filtros selecionados.";tr.appendChild(td);body.appendChild(tr);}table.appendChild(body);return table;}
+function deriveDashboardSectors(data){
+ const names=new Set();
+ (data.users||[]).forEach(x=>{if(x.sector)names.add(x.sector);});
+ (data.products||[]).forEach(x=>{if(x.responsibleSector)names.add(x.responsibleSector);if(x.createdSector)names.add(x.createdSector);});
+ (data.movements||[]).forEach(x=>{[x.sector,x.sourceSector,x.destinationSector,x.actionSector].filter(Boolean).forEach(v=>names.add(v));});
+ return [...names].sort((a,b)=>a.localeCompare(b,"pt-BR")).map(name=>({name,active:true}));
+}
 async function loadDashboard(){
  const status=$("dashboardStatus");if(!status)return;
  try{
@@ -410,12 +419,12 @@ async function loadDashboard(){
   const query=currentUser?.role==="superadmin"&&selectedCompanyId?"?companyId="+encodeURIComponent(selectedCompanyId):"";
   const [data,sectors]=await Promise.all([api("/reports/overview"+query),allCompanies?Promise.resolve([]):api("/sectors")]);
   dashboardData=data;
+  dashboardSectors=sectors.length?sectors:deriveDashboardSectors(data);
   const sectorSelect=$("dashboardSector"),previous=sectorSelect.value;sectorSelect.replaceChildren();
   const all=document.createElement("option");all.value="";all.textContent="Todos os setores permitidos";sectorSelect.appendChild(all);
-  sectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sectorSelect.appendChild(o);});
-  if(allCompanies){sectorSelect.value="";sectorSelect.disabled=true;}
-  else if(currentUser?.role==="admin_setor"){sectorSelect.value=currentUser.sector||"";sectorSelect.disabled=true;}
-  else {sectorSelect.disabled=false;if(sectors.some(s=>s.name===previous&&s.active!==false))sectorSelect.value=previous;}
+  dashboardSectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sectorSelect.appendChild(o);});
+  if(currentUser?.role==="admin_setor"){sectorSelect.value=currentUser.sector||"";sectorSelect.disabled=true;}
+  else {sectorSelect.disabled=false;if(dashboardSectors.some(s=>s.name===previous&&s.active!==false))sectorSelect.value=previous;}
   renderDashboard();
   status.textContent="Painel atualizado em "+new Date().toLocaleString("pt-BR")+". Escopo: "+(data.scope==="SECTOR"?"seu setor":data.scope==="ALL_COMPANIES"?"todas as empresas":"empresa selecionada")+".";
  }catch(err){status.textContent=err.message;message(err.message,true);}
@@ -431,6 +440,7 @@ function renderDashboard(){
   $("dashboardRegistrations").replaceChildren(dashboardTable([{label:"Empresas",value:s.companies??0},{label:"Produtos ativos",value:s.products??0},{label:"Movimentações registradas",value:s.movements??0},{label:"Usuários cadastrados",value:s.users??0}],[{label:"Indicador geral",value:x=>x.label},{label:"Total",value:x=>x.value}]));
   $("dashboardMovementBalance").replaceChildren(dashboardTable([{label:"Movimentações registradas",value:s.movements??0}],[{label:"Indicador",value:x=>x.label},{label:"Total",value:x=>x.value}]));
   $("dashboardAccessTable").replaceChildren(dashboardTable(dashboardData.users||[],[{label:"Usuário",value:x=>x.name},{label:"Empresa",value:x=>x.companyName||"—"},{label:"Perfil",value:x=>x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"}]));
+  renderDashboardReport();
   return;
  }
  const inRange=row=>{const d=new Date(row.createdAt||0);return (!from||d>=from)&&(!to||d<=to)&&(!sector||[row.sector,row.sourceSector,row.destinationSector,row.actionSector,row.createdSector,row.responsibleSector].includes(sector));};
@@ -464,11 +474,56 @@ function renderDashboard(){
   {action:"Desfazimentos",count:movements.filter(x=>x.action==="DESFAZIMENTO").length,total:quantity(movements.filter(x=>x.action==="DESFAZIMENTO"))}
  ],[{label:"Operação",value:x=>x.action},{label:"Registros",value:x=>x.count},{label:"Quantidade",value:x=>x.total}]));
  const access=$("dashboardAccessTable");access.replaceChildren(dashboardTable(users,[{label:"Usuário",value:x=>x.name},{label:"E-mail",value:x=>x.email},{label:"Perfil",value:x=>roles[x.role]||x.role},{label:"Setor",value:x=>x.sector||"—"},{label:"Situação",value:x=>x.active===false?"Inativo":x.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"},{label:"Último acesso",value:x=>dashboardDate(x.lastLoginAt)},{label:"Total de acessos",value:x=>x.loginCount||0}]));
+ renderDashboardReport();
 }
+
+function renderDashboardReport(){
+ const target=$("dashboardReportResults"),status=$("dashboardReportStatus");
+ if(!target||!dashboardData)return;
+ const from=$("dashboardFrom").value?new Date($("dashboardFrom").value+"T00:00:00"):null;
+ const to=$("dashboardTo").value?new Date($("dashboardTo").value+"T23:59:59.999"):null;
+ const sector=$("dashboardSector").value;
+ const term=($("dashboardReportSearch").value||"").trim().toLocaleLowerCase("pt-BR");
+ let rows=[],columns=[];
+ if(dashboardReportType==="users"){
+  rows=dashboardData.users||[];
+  columns=[{label:"Empresa",value:r=>r.companyName||"—"},{label:"Usuário",value:r=>r.name},{label:"E-mail",value:r=>r.email},{label:"Perfil",value:r=>r.role},{label:"Setor",value:r=>r.sector||"—"},{label:"Situação",value:r=>r.active===false?"Inativo":r.approvalStatus==="pending"?"Pendente":"Ativo"},{label:"Cadastro",value:r=>reportDate(r.createdAt)}];
+ }else if(dashboardReportType==="sectors"){
+  rows=dashboardSectors;
+  columns=[{label:"Setor",value:r=>r.name},{label:"Situação",value:r=>r.active===false?"Inativo":"Ativo"}];
+ }else if(dashboardReportType==="movements"){
+  rows=dashboardData.movements||[];
+  columns=[{label:"Empresa",value:r=>r.companyName||"—"},{label:"Data/hora",value:r=>reportDate(r.createdAt)},{label:"Operação",value:r=>r.action},{label:"Produto",value:r=>r.productName},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector||"—"},{label:"Destino",value:r=>r.destinationSector||"—"},{label:"Responsável",value:r=>r.userName||r.requestedByName||"—"}];
+ }else{
+  rows=dashboardData.products||[];
+  columns=[{label:"Empresa",value:r=>r.companyName||"—"},{label:"Produto",value:r=>r.name},{label:"Tipo",value:r=>r.category||"—"},{label:"Setor responsável",value:r=>r.responsibleSector||"—"},{label:"Quantidade",value:r=>r.quantity},{label:"Cadastrado por",value:r=>r.createdByName||"—"},{label:"Cadastro",value:r=>reportDate(r.createdAt)}];
+ }
+ rows=rows.filter(r=>{
+  const dateValue=r.createdAt||r.updatedAt;
+  if(dateValue&&(from||to)){const date=new Date(dateValue);if((from&&date<from)||(to&&date>to))return false;}
+  if(sector){
+   if(dashboardReportType==="sectors"&&r.name!==sector)return false;
+   if(dashboardReportType==="users"&&r.sector!==sector)return false;
+   if(dashboardReportType==="products"&&![r.responsibleSector,r.createdSector].includes(sector))return false;
+   if(dashboardReportType==="movements"&&![r.sector,r.sourceSector,r.destinationSector,r.actionSector].includes(sector))return false;
+  }
+  if(term&&!JSON.stringify(r).toLocaleLowerCase("pt-BR").includes(term))return false;
+  return true;
+ });
+ target.replaceChildren(dashboardTable(rows,columns));
+ if(status)status.textContent=rows.length+" registro(s) encontrado(s) em "+({users:"usuários",sectors:"setores",movements:"movimentações",products:"produtos cadastrados"}[dashboardReportType])+".";
+ document.querySelectorAll("[data-dashboard-report]").forEach(button=>button.classList.toggle("active",button.dataset.dashboardReport===dashboardReportType));
+}
+document.querySelectorAll("[data-dashboard-report]").forEach(button=>button.addEventListener("click",()=>{
+ dashboardReportType=button.dataset.dashboardReport;
+ renderDashboardReport();
+}));
+$("dashboardReportSearch").addEventListener("input",renderDashboardReport);
+
 $("dashboardRefresh").addEventListener("click",loadDashboard);
-$("dashboardSector").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
-$("dashboardFrom").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
-$("dashboardTo").addEventListener("change",()=>{if(dashboardData)renderDashboard();});
+$("dashboardSector").addEventListener("change",()=>{if(dashboardData){renderDashboard();renderDashboardReport();}});
+$("dashboardFrom").addEventListener("change",()=>{if(dashboardData){renderDashboard();renderDashboardReport();}});
+$("dashboardTo").addEventListener("change",()=>{if(dashboardData){renderDashboard();renderDashboardReport();}});
 
 function formatDate(value){if(!value)return "—";const d=new Date(String(value).slice(0,10)+"T00:00:00");return Number.isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR");}
 

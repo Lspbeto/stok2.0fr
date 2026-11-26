@@ -79,6 +79,14 @@ function showLoggedIn(user) {
      $("productsTab").hidden=false; $("deliveriesTab").hidden=false; $("activitiesTab").hidden=false;
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
    }
+   // Trava final do menu principal: ADM geral vê somente estas três opções.
+   if(isSuperAdmin){
+     const allowedSuperAdminTabs=new Set(["profile","management","chat"]);
+     document.querySelectorAll(".main-nav .tab-button").forEach(button=>{
+       button.hidden=!allowedSuperAdminTabs.has(button.dataset.tab);
+       button.setAttribute("aria-hidden",String(button.hidden));
+     });
+   }
    $("createGroupChat").hidden=adminMain;
    if(adminMain){
      document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));

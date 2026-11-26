@@ -60,8 +60,6 @@
   <button type="button" class="management-shortcut" data-tab="activities" id="managementActivities"><span class="management-shortcut-icon">✓</span><span><strong>Central de atividades</strong><small>Organizar tarefas, responsáveis e prazos</small></span><span class="management-arrow">›</span></button>
   <button type="button" class="management-shortcut" data-tab="authorizations" id="managementAuthorizations"><span class="management-shortcut-icon">✓</span><span><strong>Autorizações</strong><small>Solicitações recebidas, empresa de origem e decisões</small></span><span class="management-arrow">›</span></button>
   <button type="button" class="management-shortcut" data-tab="dashboard" id="managementDashboard"><span class="management-shortcut-icon">▦</span><span><strong>Painel de gestão</strong><small>Indicadores, cadastros e acessos</small></span><span class="management-arrow">›</span></button>
-  <button type="button" class="management-shortcut" data-tab="reports" id="managementReports"><span class="management-shortcut-icon">▤</span><span><strong>Relatórios gerenciais</strong><small>Visão consolidada e exportação</small></span><span class="management-arrow">›</span></button>
-  <button type="button" class="management-shortcut" data-tab="history" id="managementHistory"><span class="management-shortcut-icon">◷</span><span><strong>Históricos e relatórios</strong><small>Usuários e movimentações</small></span><span class="management-arrow">›</span></button>
   <button type="button" class="management-shortcut" data-tab="create" id="managementCreate"><span class="management-shortcut-icon">＋</span><span><strong>Empresas, setores e usuários</strong><small>Cadastros e gerenciamento de acessos</small></span><span class="management-arrow">›</span></button>
   <button type="button" class="management-shortcut" data-tab="globalReport" id="managementGlobalReport"><span class="management-shortcut-icon">▥</span><span><strong>Empresas e usuários</strong><small>Relatório geral e situação dos cadastros</small></span><span class="management-arrow">›</span></button>
   <button type="button" class="management-shortcut" data-tab="databaseTools" id="managementDatabase"><span class="management-shortcut-icon">▣</span><span><strong>Backup e restauração</strong><small>Segurança e consulta da base de dados</small></span><span class="management-arrow">›</span></button>
@@ -91,6 +89,21 @@
 <label>Setor<select id="dashboardSector"><option value="">Todos os setores permitidos</option></select></label>
 <button type="button" id="dashboardRefresh">Atualizar painel</button>
 </div>
+<section class="dashboard-card dashboard-report-query">
+<h3>Consulta de relatórios</h3>
+<p class="muted">Consulte os registros por assunto. Use o período, o setor e a pesquisa para refinar os resultados.</p>
+<div class="dashboard-report-tabs" role="group" aria-label="Tipo de relatório">
+<button type="button" class="secondary active" data-dashboard-report="users">Usuários</button>
+<button type="button" class="secondary" data-dashboard-report="sectors">Setores</button>
+<button type="button" class="secondary" data-dashboard-report="movements">Movimentações</button>
+<button type="button" class="secondary" data-dashboard-report="products">Produtos cadastrados</button>
+</div>
+<label class="dashboard-report-search">Pesquisar registros
+<input id="dashboardReportSearch" type="search" placeholder="Nome, usuário, produto, setor ou operação">
+</label>
+<p id="dashboardReportStatus" class="muted" aria-live="polite">Atualize o painel para consultar os registros.</p>
+<div id="dashboardReportResults" class="table-wrap"></div>
+</section>
 <p id="dashboardStatus" class="muted" aria-live="polite">Selecione Atualizar painel para consultar os dados.</p>
 <div id="dashboardKpis" class="dashboard-kpis"></div>
 <div class="dashboard-grid">
@@ -166,4 +179,4 @@
 
 
 </section><p id="message" role="status"></p></main>
-<script src="js/config.js"></script><script src="js/app.js?v=20261126-menu-inicial-tres-opcoes-2"></script></body></html>
+<script src="js/config.js"></script><script src="js/app.js?v=20261126-painel-consultas-1"></script></body></html>

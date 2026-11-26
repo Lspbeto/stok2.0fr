@@ -48,11 +48,12 @@ function showLoggedIn(user) {
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   renderProfile(user);
-   $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+   $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
    $("productsTab").hidden=adminMain; $("deliveriesTab").hidden=adminMain; $("activitiesTab").hidden=adminMain; $("approvalsTab").hidden=true; $("authorizationsTab").hidden=false;
    $("managementReportFilter").hidden=!isSuperAdmin;
    $("createGroupChat").hidden=adminMain;
+   $("managementAuthorizations").hidden=false;
    $("managementProducts").hidden=!adminMain; $("managementDeliveries").hidden=!adminMain;
    $("managementHistory").hidden=!["admin","superadmin","admin_setor"].includes(user.role);
    $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
@@ -997,7 +998,7 @@ $("chatForm").addEventListener("submit",async e=>{
     const card=document.createElement("article");card.className="panel";
     const type={MOVIMENTACAO_BEM:"Transferência/devolução de bem",SOLICITACAO_PRODUTO:"Solicitação de produto",ACERTO_ESTOQUE:"Acerto de estoque"}[item.type]||item.type;
     const status={PENDENTE:"Aguardando análise",APROVADA:"Aprovada",RECUSADA:"Recusada"}[item.status]||item.status;
-    const info=document.createElement("p");info.textContent=type+" — "+status+" | Solicitante: "+item.requesterName+" | Setor: "+item.requesterSector;
+    const info=document.createElement("p");info.textContent=type+" — "+status+" | Empresa: "+(item.companyName||item.company?.name||"Empresa não identificada")+" | Solicitante: "+item.requesterName+" | Setor: "+item.requesterSector;
     const details=document.createElement("p");details.textContent=[item.productName,item.patrimonyCode?"Patrimônio: "+item.patrimonyCode:"",item.sourceSector?"Origem: "+item.sourceSector:"",item.destinationSector?"Destino: "+item.destinationSector:"",item.quantity!==null&&item.quantity!==undefined?"Quantidade: "+item.quantity+" "+(item.unit||""):"",item.currentQuantity!==null&&item.currentQuantity!==undefined?"Registrado: "+item.currentQuantity:"",item.countedQuantity!==null&&item.countedQuantity!==undefined?"Encontrado: "+item.countedQuantity:"","Justificativa: "+item.reason,item.decisionNote?"Observação: "+item.decisionNote:""].filter(Boolean).join(" • ");
     card.append(info,details);
     if(item.status==="PENDENTE"&&["admin","admin_setor","superadmin"].includes(currentUser.role)){

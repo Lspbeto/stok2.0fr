@@ -374,7 +374,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="products")loadProducts();
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){setCreateSection("users");loadSectors();loadUsersList();if(currentUser?.role==="superadmin")loadCompaniesList();}
-  if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
+  if(b.dataset.tab==="databaseTools"){loadRegistryReport();}
   if(b.dataset.tab==="chat"){loadChatCompanies();loadChatContacts();loadChatMessages();}
   if(b.dataset.tab==="approvals")loadPendingUsers();
   if(b.dataset.tab==="authorizations")loadAuthorizations();
@@ -806,7 +806,7 @@ async function deactivateRegistryRecord(record){
   else if(record.type==="Usuário")d=await api("/users/"+record._id+"/deactivate",{method:"PATCH"});
   else if(record.type==="Produto / bem")d=await registryApi(record,"/products/"+record._id,{method:"DELETE"});
   message(d?.message||"Cadastro desativado. Histórico preservado.");
-  await loadRegistryReport();await loadDiagnostics();
+  await loadRegistryReport();
  }catch(err){message(err.message,true);}
 }
 
@@ -833,82 +833,9 @@ function renderRegistryReport(){
  table.appendChild(body);box.appendChild(table);
  $("registrySummary").textContent=items.length+" de "+registryCache.length+" cadastro(s) exibido(s).";
 }
-async function loadDiagnostics(){
- try{
-  const data=await api("/database/diagnostics"),box=$("diagnosticsList");box.replaceChildren();
-  const issues=[];
-  (data.duplicateIndexes||[]).forEach(x=>issues.push("Índice global antigo detectado: "+x.name+" ("+JSON.stringify(x.key)+")."));
-  (data.duplicateSectors||[]).forEach(x=>issues.push("Setor duplicado na mesma empresa: "+x.name+" — "+x.count+" registros."));
-  (data.duplicatePatrimony||[]).forEach(x=>issues.push("Patrimônio duplicado: "+x.patrimonyCode+" — "+x.count+" registros."));
-  const status=data.sectorIndexStatus||{};
-  const statusCard=document.createElement("article");statusCard.className="diagnostic-warning";
-  const statusTitle=document.createElement("strong");statusTitle.textContent="Verificação atual dos índices de setores";
-  const statusText=document.createElement("p");
-  statusText.textContent="Índice global name_1: "+(status.legacyGlobalNameIndexExists?"AINDA EXISTE":"não existe")+
-   " | Índice único companyId + name: "+(status.compoundUniqueIndexExists?"confirmado":"NÃO CONFIRMADO");
-  statusCard.append(statusTitle,statusText);
-  if(Array.isArray(data.sectorIndexes)&&data.sectorIndexes.length){
-   const list=document.createElement("small");
-   list.textContent="Índices encontrados: "+data.sectorIndexes.map(i=>i.name+" ["+JSON.stringify(i.key)+"]"+(i.unique?" Unique":"")).join(" • ");
-   statusCard.appendChild(list);
-  }
-  box.appendChild(statusCard);
-  const summary=document.createElement("p");
-  summary.textContent=issues.length+" problema(s) estrutural(is); "+(data.errors||[]).length+" erro(s) ainda exibido(s). Atualização automática a cada 15 segundos.";
-  $("diagnosticsSummary").replaceChildren(summary);
-  issues.forEach(v=>{const p=document.createElement("p");p.className="diagnostic-warning";p.textContent=v;box.appendChild(p);});
-  (data.duplicateIndexes||[]).forEach(x=>{
-   if(x.name!=="name_1"||currentUser?.role!=="superadmin")return;
-   const card=document.createElement("article");card.className="diagnostic-warning";
-   const info=document.createElement("p");info.textContent="Sugestão: substituir o índice global name_1 por um índice único composto por empresa + nome do setor. Cadastros não serão apagados.";
-   const btn=document.createElement("button");btn.type="button";btn.textContent="Corrigir índice name_1";
-   btn.addEventListener("click",async()=>{if(!confirm("Verificar duplicidades, criar o índice companyId + name e remover somente name_1? Nenhum cadastro será apagado."))return;try{const result=await api("/database/diagnostics/fix-sector-index",{method:"POST"});message(result.message);await loadDiagnostics();}catch(err){message(err.message,true);}});
-   card.append(info,btn);box.appendChild(card);
-  });
-  (data.errors||[]).forEach(x=>{
-   const article=document.createElement("article");article.className="diagnostic-error";
-   const heading=document.createElement("div");heading.className="diagnostic-error-heading";
-   const title=document.createElement("strong");title.textContent="Erro MongoDB E"+x.code+" — "+(x.collection||"coleção não identificada");
-   const meta=document.createElement("small");meta.textContent=[x.index?"Índice: "+x.index:"",x.route?"Rota: "+x.route:"",x.createdAt?new Date(x.createdAt).toLocaleString("pt-BR"):""].filter(Boolean).join(" • ");
-   const eye=document.createElement("button");eye.type="button";eye.className="secondary diagnostic-eye";eye.textContent="👁";eye.title="Ver detalhes do erro";eye.setAttribute("aria-label","Ver detalhes do erro");eye.setAttribute("aria-expanded","false");
-   const details=document.createElement("div");details.hidden=true;details.className="diagnostic-error-details";
-   const detail=document.createElement("p");detail.textContent=x.message||"Cadastro duplicado";
-   const pairs=x.keyValue&&typeof x.keyValue==="object"?Object.entries(x.keyValue).map(([k,v])=>k+" = "+String(v)).join(", "):"não informado";
-   const variable=document.createElement("p");variable.textContent="Variável/valor: "+pairs+" | Índice: "+(x.index||"não identificado");
-   details.append(detail,variable);
-   if(x.collection==="sectors"&&x.keyValue?.name){
-    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar valor da variável name";edit.className="secondary";
-    edit.addEventListener("click",async()=>{
-     try{
-      if(!registryCache.length)await loadRegistryReport();
-      const matches=registryCache.filter(r=>r.type==="Setor"&&r.name===String(x.keyValue.name)&&(!x.companyId||r.companyId===x.companyId));
-      if(matches.length!==1){message(matches.length?"Mais de um setor encontrado. Use Consulta de cadastros para escolher o correto.":"Não foi possível identificar um único setor. Use Consulta de cadastros para localizar e editar o registro.",true);return;}
-      await editRegistryRecord(matches[0]);await loadDiagnostics();
-     }catch(err){message(err.message,true);}
-    });details.appendChild(edit);
-   }
-   const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir registro deste erro";remove.className="danger";
-   remove.addEventListener("click",async()=>{if(!confirm("Excluir somente este registro do relatório? O cadastro original será preservado."))return;try{const result=await api("/database/diagnostics/errors/"+encodeURIComponent(x._id),{method:"DELETE"});message(result.message);await loadDiagnostics();}catch(err){message(err.message,true);}});
-   details.appendChild(remove);
-   eye.addEventListener("click",()=>{
-    details.hidden=!details.hidden;eye.textContent=details.hidden?"👁":"🙈";
-    eye.title=details.hidden?"Ver detalhes do erro":"Ocultar detalhes do erro";
-    eye.setAttribute("aria-label",eye.title);eye.setAttribute("aria-expanded",String(!details.hidden));
-   });
-   heading.append(title,eye);article.append(heading,meta,details);box.appendChild(article);
-  });
-  if(!issues.length&&!(data.errors||[]).length){const p=document.createElement("p");p.textContent="Nenhuma duplicidade ou erro ativo encontrado neste momento.";box.appendChild(p);}
-  // Consulta novamente enquanto a tela de diagnósticos estiver aberta.
-  if(!window.stokDiagnosticsTimer)window.stokDiagnosticsTimer=window.setInterval(()=>{
-   const tab=$("databaseTools");
-   if(tab&&!tab.hidden&&currentUser&&["admin","superadmin"].includes(currentUser.role))loadDiagnostics();
-  },15000);
- }catch(err){message(err.message,true);}
-}
 $("registryRefresh").addEventListener("click",loadRegistryReport);
 $("registrySearch").addEventListener("input",renderRegistryReport);
 $("registryType").addEventListener("change",renderRegistryReport);
-$("diagnosticsRefresh").addEventListener("click",loadDiagnostics);
 
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{

@@ -50,32 +50,41 @@ function showLoggedIn(user) {
   renderProfile(user);
    $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
-   // Menu principal dos administradores: Perfil, Chat, Gerenciamento e Autorizações.
-   if(adminMain){
-     ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
-     $("managementTab").hidden=false; $("chatTab").hidden=false; $("authorizationsTab").hidden=false;
+   // O administrador geral tem somente três áreas principais.
+   if(isSuperAdmin){
+     $("profileTab").hidden=false;
+     $("managementTab").hidden=false;
+     $("chatTab").hidden=false;
+     ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab","authorizationsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
+     $("profileRolePreview").hidden=true;
+     $("managementReportFilter").hidden=false;
+     $("managementAuthorizations").hidden=false;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false;
+     $("managementHistory").hidden=false; $("managementCreate").hidden=false;
+     $("managementGlobalReport").hidden=false; $("managementDatabase").hidden=false;
+     $("managementDashboard").hidden=false; $("managementReports").hidden=false;
+   }else if(user.role==="admin"){
+     $("profileTab").hidden=false; $("managementTab").hidden=false; $("chatTab").hidden=false;
+     ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab","authorizationsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
+     $("profileRolePreview").hidden=true;
+     $("managementReportFilter").hidden=true;
+     $("managementAuthorizations").hidden=false;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false;
+     $("managementHistory").hidden=false; $("managementCreate").hidden=true;
+     $("managementGlobalReport").hidden=true; $("managementDatabase").hidden=true;
+     $("managementDashboard").hidden=false; $("managementReports").hidden=false;
    }else{
+     $("profileTab").hidden=false;
+     $("managementTab").hidden=true; $("chatTab").hidden=false;
      $("productsTab").hidden=false; $("deliveriesTab").hidden=false; $("activitiesTab").hidden=false;
-     $("authorizationsTab").hidden=false; $("approvalsTab").hidden=!isAdmin;
+     $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
    }
-   $("managementReportFilter").hidden=!isSuperAdmin;
    $("createGroupChat").hidden=adminMain;
-   $("managementAuthorizations").hidden=false;
-   $("managementProducts").hidden=!adminMain; $("managementDeliveries").hidden=!adminMain;
-   $("managementHistory").hidden=!["admin","superadmin","admin_setor"].includes(user.role);
-   $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
-   $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
-   $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
    if(adminMain){
      document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));
-     $("managementTab").classList.add("active");
-     $("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="management");
-     if(isSuperAdmin)loadManagementCompanies();
+     $("profileTab").classList.add("active");
+     $("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="profile");
    }
-   $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
-   $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
-   if(adminMain){document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));$("managementTab").classList.add("active");$("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="management");loadManagementCompanies();}
-   $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role); $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role); $("managementHistory").hidden=false; $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
   loadChatCompanies();
@@ -325,7 +334,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="profile")renderProfile(currentUser);
-  if(b.dataset.tab==="management"){$("managementTab").classList.add("active");if(currentUser?.role==="superadmin")loadManagementCompanies();}
+  if(b.dataset.tab==="management"){if(currentUser?.role==="superadmin")loadManagementCompanies();if(currentUser?.role==="superadmin")loadManagementReport();}
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="globalReport"&&currentUser?.role==="superadmin")loadGlobalCompaniesUsersReport();
   if(b.dataset.tab==="dashboard")loadDashboard();
@@ -333,7 +342,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   if(b.dataset.tab==="deliveries")loadDeliveries();
   if(b.dataset.tab==="create"){loadSectors();if(currentUser?.role==="superadmin")loadCompaniesList();}
   if(b.dataset.tab==="databaseTools"){loadRegistryReport();loadDiagnostics();}
-  if(b.dataset.tab==="chat"){loadChatContacts();loadChatMessages();}
+  if(b.dataset.tab==="chat"){loadChatCompanies();loadChatContacts();loadChatMessages();}
   if(b.dataset.tab==="approvals")loadPendingUsers();
   if(b.dataset.tab==="authorizations")loadAuthorizations();
   if(b.dataset.tab==="activities")loadActivities();

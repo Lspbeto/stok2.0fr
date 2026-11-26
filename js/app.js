@@ -347,7 +347,8 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 function setCreateSection(section){
- const allowed={users:["admin","superadmin"].includes(currentUser?.role),sectors:["admin","superadmin"].includes(currentUser?.role),companies:currentUser?.role==="superadmin",companyData:currentUser?.role==="admin"};
+ const allowed={users:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),sectors:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),companies:currentUser?.role==="superadmin",companyData:currentUser?.role==="admin"};
+ $("createCompanyRequired").hidden=!(currentUser?.role==="superadmin"&&!selectedCompanyId);
  if(!allowed[section])section=allowed.users?"users":allowed.sectors?"sectors":allowed.companies?"companies":"companyData";
  ["users","sectors","companies","companyData"].forEach(key=>{const node=$(key);if(node)node.hidden=key!==section||!allowed[key];});
  document.querySelectorAll("[data-create-section]").forEach(button=>button.classList.toggle("active",button.dataset.createSection===section));

@@ -34,11 +34,13 @@ async function refreshPendingStatus(){
 function renderProfile(user){
  const roleLabels={superadmin:"Administrador geral",admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"};
  const company=user.companyName||user.companyId?.name||(user.companyId?String(user.companyId):"Não vinculada");
- const fields=[["Nome completo",user.name],["E-mail",user.email],["Perfil de acesso",roleLabels[user.role]||user.role||"Não informado"],["Empresa",user.role==="superadmin"?"Todas as empresas (acesso geral)":company],["Setor",user.sector||"Não definido"],["Situação",user.active===false?"Inativo":user.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"]];
+ const fields=[["Nome completo",user.name],["E-mail",user.email],["Log",user.log||"Ainda não cadastrado"],["Perfil de acesso",roleLabels[user.role]||user.role||"Não informado"],["Empresa",user.role==="superadmin"?"Todas as empresas (acesso geral)":company],["Setor",user.sector||"Não definido"],["Situação",user.active===false?"Inativo":user.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"]];
  const box=$("profileDetails");box.replaceChildren();
+  if($("profileLog"))$("profileLog").value=user.log||"";
  fields.forEach(([label,value])=>{const item=document.createElement("article");item.className="profile-detail";const title=document.createElement("span");title.textContent=label;const detail=document.createElement("strong");detail.textContent=value??"Não informado";item.append(title,detail);box.appendChild(item);});
  $("profileRolePreview").hidden=user.role!=="superadmin";
 }
+$("profileLogForm").addEventListener("submit",async e=>{e.preventDefault();try{const result=await api("/auth/profile",{method:"PATCH",body:JSON.stringify({log:$("profileLog").value})});currentUser={...currentUser,...result.user};renderProfile(currentUser);message(result.message||"Log atualizado.");}catch(err){message(err.message,true);}});
 function showLoggedIn(user) {
   currentUser=user; $("changePasswordPanel").hidden=true; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   const isSuperAdmin=user.role==="superadmin";
@@ -47,6 +49,15 @@ function showLoggedIn(user) {
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   renderProfile(user);
    $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
+   const adminMain=["admin","superadmin"].includes(user.role);
+   $("productsTab").hidden=adminMain; $("deliveriesTab").hidden=adminMain; $("activitiesTab").hidden=adminMain; $("approvalsTab").hidden=true; $("authorizationsTab").hidden=false;
+   $("managementReportFilter").hidden=!isSuperAdmin;
+   $("managementProducts").hidden=!adminMain; $("managementDeliveries").hidden=!adminMain;
+   $("managementHistory").hidden=!["admin","superadmin","admin_setor"].includes(user.role);
+   $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
+   $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
+   $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role);
+   if(adminMain){document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));$("managementTab").classList.add("active");$("app").querySelectorAll(".tab").forEach(x=>x.hidden=x.id!=="management");loadManagementCompanies();}
    $("managementDashboard").hidden=!["admin","admin_setor","superadmin"].includes(user.role); $("managementReports").hidden=!["admin","admin_setor","superadmin"].includes(user.role); $("managementHistory").hidden=false; $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
@@ -273,7 +284,7 @@ $("changePasswordForm").addEventListener("submit",async e=>{
   }catch(err){message(err.message,true);}
   finally{if(submit)submit.disabled=false;}
 });
-$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/login",{method:"POST",body:JSON.stringify({email:$("email").value,login:$("email").value,password:$("password").value})});token=d.token;localStorage.setItem("stok_token",token);if(d.pending||d.user.approvalStatus==="pending"){showPending(d.user);message(d.message||"Aguardando aprovação.");}else{showLoggedIn(d.user);message("Login realizado.");}}catch(err){message(err.message,true);}});
 // Alterna entre login e cadastro mantendo o mesmo cartão visual.
 $("showRegister").addEventListener("click",()=>{$("login").hidden=true;$("registerScreen").hidden=false;});
 $("showTemporary").addEventListener("click",()=>{$("login").hidden=true;$("temporaryScreen").hidden=false;});
@@ -297,7 +308,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
   if(b.dataset.tab==="profile")renderProfile(currentUser);
-  if(b.dataset.tab==="management"){$("managementTab").classList.add("active");}
+  if(b.dataset.tab==="management"){$("managementTab").classList.add("active");if(currentUser?.role==="superadmin")loadManagementCompanies();}
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="globalReport"&&currentUser?.role==="superadmin")loadGlobalCompaniesUsersReport();
   if(b.dataset.tab==="dashboard")loadDashboard();
@@ -876,7 +887,7 @@ async function loadChatContacts(){
  try{
   if(!$("chatCompany").value)return;
   const query=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
-  const users=await api("/chat/contacts"+query),select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
+  let users=await api("/chat/contacts"+query);if(["admin","superadmin"].includes(currentUser.role))users=users.filter(user=>currentUser.role==="superadmin"?user.role==="admin":user.role==="superadmin");const select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
   select.replaceChildren();
   users.forEach(user=>{const option=document.createElement("option");option.value=user._id;option.textContent=user.name+" — "+user.sector+" ("+user.role+")";option.selected=previous.has(user._id);select.appendChild(option);});
  }catch(err){message(err.message,true);}
@@ -884,6 +895,7 @@ async function loadChatContacts(){
 async function createChatConversation(type){
  try{
   const participants=[...$("chatContacts").selectedOptions].map(x=>x.value);
+  if(["admin","superadmin"].includes(currentUser.role)&&type!=="DIRECT"){message("O chat dos administradores é uma conversa privada entre o administrador geral e o administrador da empresa.",true);return;}
   if(type==="DIRECT"&&participants.length!==1){message("Selecione exatamente uma pessoa para a conversa privada.",true);return;}
   if(type==="GROUP"&&participants.length<1){message("Selecione pelo menos uma pessoa para o grupo.",true);return;}
   if(type==="GROUP"&&!$("chatGroupName").value.trim()){message("Informe um nome para o grupo.",true);$("chatGroupName").focus();return;}
@@ -905,7 +917,7 @@ async function loadChatMessages(){
   const channelSelect=$("chatConversation"),old=activeChatConversation;
   channelSelect.replaceChildren();
   chatChannels.forEach(ch=>{const o=document.createElement("option");o.value=ch.id;o.textContent=ch.name;channelSelect.appendChild(o);});
-  activeChatConversation=chatChannels.some(ch=>ch.id===old)?old:"empresa";
+  activeChatConversation=chatChannels.some(ch=>ch.id===old)?old:(chatChannels[0]?.id||"empresa");
   channelSelect.value=activeChatConversation;
   renderChatConversationList();
   const activeChannel=chatChannels.find(ch=>ch.id===activeChatConversation);
@@ -1204,6 +1216,45 @@ function renderReportTable(title,rows,columns,actions){
  });
  t.appendChild(body);table.appendChild(t);wrap.appendChild(table);return wrap;
 }
+
+async function loadManagementCompanies(){
+ try{
+  const select=$("managementCompanySelect"),previous=selectedCompanyId;
+  const companies=await api("/chat/companies");select.replaceChildren();
+  const all=document.createElement("option");all.value="";all.textContent="Todas as empresas";select.appendChild(all);
+  companies.forEach(company=>{const option=document.createElement("option");option.value=company._id;option.textContent=company.name;select.appendChild(option);});
+  if(companies.some(company=>company._id===previous))select.value=previous;else select.value="";
+  selectedCompanyId=select.value;
+  if(selectedCompanyId)localStorage.setItem("stok_company_id",selectedCompanyId);else localStorage.removeItem("stok_company_id");
+ }catch(err){$("managementReportStatus").textContent=err.message;message(err.message,true);}
+}
+async function loadManagementReport(){
+ try{
+  const companyId=$("managementCompanySelect").value||"";
+  selectedCompanyId=companyId;
+  if(companyId)localStorage.setItem("stok_company_id",companyId);else localStorage.removeItem("stok_company_id");
+  $("managementReportStatus").textContent="Consultando usuários e movimentações...";
+  $("managementReportSummary").replaceChildren();$("managementReportTables").replaceChildren();
+  const data=await api("/reports/overview"+(companyId?"?companyId="+encodeURIComponent(companyId):""),{headers:companyId?{"X-Company-Id":companyId}:{"X-Company-Id":""}});
+  const summary=data.summary||{};
+  [["Empresas",summary.companies??data.companies?.length??0],["Usuários",summary.users??data.users?.length??0],["Movimentações",summary.movements??data.movements?.length??0]].forEach(([label,value])=>{const card=document.createElement("div");card.className="report-kpi";const strong=document.createElement("strong");strong.textContent=value;const span=document.createElement("span");span.textContent=label;card.append(strong,span);$("managementReportSummary").appendChild(card);});
+  const companies=data.companies||[];
+  if(!companies.length){$("managementReportTables").textContent="Nenhuma empresa encontrada.";return;}
+  companies.forEach(company=>{
+   const group=document.createElement("section");group.className="management-company-report";
+   const title=document.createElement("h3");title.textContent=company.name;group.appendChild(title);
+   const users=(data.users||[]).filter(row=>String(row.companyId?._id||row.companyId)===String(company._id));
+   const movements=(data.movements||[]).filter(row=>String(row.companyId?._id||row.companyId)===String(company._id));
+   group.append(renderReportTable("Usuários",users,[{label:"Nome",value:r=>r.name},{label:"E-mail",value:r=>r.email},{label:"Perfil",value:r=>r.role},{label:"Setor",value:r=>r.sector},{label:"Situação",value:r=>r.active===false?"Inativo":"Ativo"}]));
+   group.append(renderReportTable("Movimentações",movements,[{label:"Data/hora",value:r=>reportDate(r.createdAt)},{label:"Operação",value:r=>r.action},{label:"Produto",value:r=>r.productName},{label:"Quantidade",value:r=>r.quantity},{label:"Origem",value:r=>r.sourceSector},{label:"Destino",value:r=>r.destinationSector},{label:"Responsável",value:r=>r.userName}]));
+   $("managementReportTables").appendChild(group);
+  });
+  $("managementReportStatus").textContent=companyId?"Relatório restrito à empresa selecionada.":"Relatório geral: cada empresa aparece em uma seção separada.";
+ }catch(err){$("managementReportStatus").textContent=err.message;message(err.message,true);}
+}
+$("managementCompanySelect").addEventListener("change",()=>{selectedCompanyId=$("managementCompanySelect").value||"";if(selectedCompanyId)localStorage.setItem("stok_company_id",selectedCompanyId);else localStorage.removeItem("stok_company_id");});
+$("managementReportRefresh").addEventListener("click",loadManagementReport);
+
 async function loadReports(){
  try{
   $("reportStatus").textContent="Consultando dados autorizados...";

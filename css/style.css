@@ -367,3 +367,20 @@ input:focus,select:focus,textarea:focus{border-color:#4775e8;box-shadow:0 0 0 3p
 .management-arrow{font-size:24px;color:#7184a3}
 .management-back{margin:0 0 14px;padding:8px 12px;background:#eef3fc;color:#2858bd;border:1px solid #dce6f8;border-radius:8px;font-size:12px}
 @media(max-width:650px){.management-home{padding:15px}.management-shortcuts{grid-template-columns:1fr}.management-shortcut{padding:13px}.management-heading h2{font-size:21px}}
+
+/* Perfil com identificador de acesso e relatórios agrupados por empresa. */
+.profile-log-form{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:12px;background:#f8faff}
+.profile-log-form label{display:block;font-weight:700;margin-bottom:8px}
+.profile-log-row{display:flex;gap:9px;align-items:center}
+.profile-log-row input{flex:1;min-width:0}
+.profile-log-form small{display:block;margin-top:7px;color:var(--muted);font-size:12px}
+.management-report-filter{margin:18px 0 22px;padding:18px;border:1px solid var(--line);border-radius:13px;background:#f8faff}
+.management-report-filter h3{margin:0 0 7px}
+.management-report-filter>p{color:var(--muted);font-size:13px}
+.management-report-filter label{display:block;max-width:440px;margin:12px 0}
+.management-report-filter select{width:100%}
+.management-report-filter button{margin-bottom:8px}
+.management-company-report{margin:18px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.management-company-report h3{margin:0 0 14px;color:#1c3152}
+.management-company-report h3:not(:first-child){margin-top:18px}
+@media(max-width:600px){.profile-log-row{align-items:stretch;flex-direction:column}.profile-log-row button{width:100%}.management-report-filter{padding:13px}}

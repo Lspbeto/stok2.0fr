@@ -52,6 +52,7 @@ function showLoggedIn(user) {
    const adminMain=["admin","superadmin"].includes(user.role);
    $("productsTab").hidden=adminMain; $("deliveriesTab").hidden=adminMain; $("activitiesTab").hidden=adminMain; $("approvalsTab").hidden=true; $("authorizationsTab").hidden=false;
    $("managementReportFilter").hidden=!isSuperAdmin;
+   $("createGroupChat").hidden=adminMain;
    $("managementProducts").hidden=!adminMain; $("managementDeliveries").hidden=!adminMain;
    $("managementHistory").hidden=!["admin","superadmin","admin_setor"].includes(user.role);
    $("managementCreate").hidden=!isAdmin; $("managementGlobalReport").hidden=!isSuperAdmin; $("managementDatabase").hidden=!isAdmin;

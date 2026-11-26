@@ -31,12 +31,21 @@ async function refreshPendingStatus(){
  try{const user=await api("/auth/me");if(user.approvalStatus==="approved"){ $("pendingScreen").hidden=true; showLoggedIn(user); message("Acesso aprovado. Bem-vindo ao STOK.");}else if(user.approvalStatus==="rejected"){$("pendingMessage").textContent="Sua solicitação foi recusada. Entre em contato com o administrador da empresa."; }else{$("pendingMessage").textContent="Sua solicitação continua aguardando aprovação do administrador.";}}
  catch(err){$("pendingMessage").textContent=err.message;}
 }
+function renderProfile(user){
+ const roleLabels={superadmin:"Administrador geral",admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"};
+ const company=user.companyName||user.companyId?.name||(user.companyId?String(user.companyId):"Não vinculada");
+ const fields=[["Nome completo",user.name],["E-mail",user.email],["Perfil de acesso",roleLabels[user.role]||user.role||"Não informado"],["Empresa",user.role==="superadmin"?"Todas as empresas (acesso geral)":company],["Setor",user.sector||"Não definido"],["Situação",user.active===false?"Inativo":user.approvalStatus==="pending"?"Aguardando aprovação":"Ativo"]];
+ const box=$("profileDetails");box.replaceChildren();
+ fields.forEach(([label,value])=>{const item=document.createElement("article");item.className="profile-detail";const title=document.createElement("span");title.textContent=label;const detail=document.createElement("strong");detail.textContent=value??"Não informado";item.append(title,detail);box.appendChild(item);});
+ $("profileRolePreview").hidden=user.role!=="superadmin";
+}
 function showLoggedIn(user) {
   currentUser=user; $("changePasswordPanel").hidden=true; $("pendingScreen").hidden=true; $("login").hidden=true; $("temporaryScreen").hidden=true; $("registerScreen").hidden=true; $("forgotScreen").hidden=true; $("resetScreen").hidden=true; $("app").hidden=false;
   const isSuperAdmin=user.role==="superadmin";
   const isAdmin=["admin","superadmin"].includes(user.role);
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
+  renderProfile(user);
   $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=false; $("databaseTools").hidden=true;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
   $("deliveryForm").hidden=user.role!=="admin";
@@ -236,12 +245,13 @@ async function loadCompaniesList() {
 // Alteração de senha disponível para todos os perfis, limitada à própria conta.
 function closeChangePassword(){
   $("changePasswordPanel").hidden=true;
-  $("app").querySelectorAll(".tab").forEach(section=>section.hidden=true);
+  $("app").querySelectorAll(".tab").forEach(section=>section.hidden=section.id!=="profile");
+  document.querySelectorAll(".tab-button").forEach(button=>button.classList.toggle("active",button.dataset.tab==="profile"));
   $("showChangePassword").setAttribute("aria-expanded","false");
 }
 $("showChangePassword").addEventListener("click",()=>{
   $("app").querySelectorAll(".tab").forEach(section=>section.hidden=true);
-  document.querySelectorAll(".tab-button").forEach(button=>button.classList.remove("active"));
+  document.querySelectorAll(".tab-button").forEach(button=>button.classList.toggle("active",button.dataset.tab==="profile"));
   $("changePasswordPanel").hidden=false;
   $("showChangePassword").setAttribute("aria-expanded","true");
   $("currentPassword").focus();
@@ -285,6 +295,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
   }
   document.querySelectorAll(".tab").forEach(x=>x.hidden=x.id!==b.dataset.tab);
   document.querySelectorAll(".tab-button").forEach(x=>x.classList.toggle("active",x===b));
+  if(b.dataset.tab==="profile")renderProfile(currentUser);
   if(b.dataset.tab==="history")loadHistory();
   if(b.dataset.tab==="globalReport"&&currentUser?.role==="superadmin")loadGlobalCompaniesUsersReport();
   if(b.dataset.tab==="dashboard")loadDashboard();
@@ -312,8 +323,15 @@ async function loadGlobalCompanySelector(){
    select.addEventListener("change",()=>{
     selectedCompanyId=select.value;localStorage.setItem("stok_company_id",selectedCompanyId);
     $("sectors").hidden=!selectedCompanyId; $("users").hidden=!selectedCompanyId;
-    if(!selectedCompanyId){message("Selecione uma empresa para acessar os dados e cadastrar setores ou usuários.");return;}
-    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();if(document.querySelector("[data-tab=dashboard].active"))loadDashboard();
+    if(!selectedCompanyId){
+     message("Visão geral: o painel e os relatórios consideram todas as empresas.");
+     if(!$("dashboard").hidden)loadDashboard();
+     if(!$("reports").hidden)loadReports();
+     return;
+    }
+    loadSectors();loadProducts();loadHistory();loadDeliveries();loadAuthorizations();loadUsersList();
+    if(!$("dashboard").hidden)loadDashboard();
+    if(!$("reports").hidden)loadReports();
    });
   }
   select.replaceChildren();

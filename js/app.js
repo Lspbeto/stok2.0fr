@@ -59,7 +59,7 @@ function showLoggedIn(user) {
      $("profileRolePreview").hidden=true;
      $("managementReportFilter").hidden=false;
      $("managementAuthorizations").hidden=false;
-     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
      $("managementHistory").hidden=false; $("managementCreate").hidden=false;
      $("managementGlobalReport").hidden=false; $("managementDatabase").hidden=false;
      $("managementDashboard").hidden=false; $("managementReports").hidden=false;
@@ -69,34 +69,30 @@ function showLoggedIn(user) {
      $("profileRolePreview").hidden=true;
      $("managementReportFilter").hidden=true;
      $("managementAuthorizations").hidden=false;
-     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
      $("managementHistory").hidden=false; $("managementCreate").hidden=true;
      $("managementGlobalReport").hidden=true; $("managementDatabase").hidden=true;
      $("managementDashboard").hidden=false; $("managementReports").hidden=false;
    }else{
+     // Todos os perfis acessam as operações permitidas a partir de Gerenciamento.
      $("profileTab").hidden=false;
-     $("managementTab").hidden=true; $("chatTab").hidden=false;
-     $("productsTab").hidden=false; $("deliveriesTab").hidden=false; $("activitiesTab").hidden=false;
+     $("managementTab").hidden=false; $("chatTab").hidden=false;
+     ["productsTab","deliveriesTab","activitiesTab"].forEach(id=>{if($(id))$(id).hidden=true;});
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
+     ["managementAuthorizations","managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
    }
    // Trava visual definitiva: qualquer perfil administrativo vê somente
    // Meu perfil, Gerenciamento e Chat na navegação principal.
-   if(adminMain){
-     const allowedAdminTabs=new Set(["profile","management","chat"]);
-     document.querySelectorAll(".main-nav .tab-button").forEach(button=>{
-       const visible=allowedAdminTabs.has(button.dataset.tab);
-       button.hidden=!visible;
-       button.setAttribute("aria-hidden",String(!visible));
-       if(visible)button.style.removeProperty("display");
-       else button.style.setProperty("display","none","important");
-     });
-   }else{
-     document.querySelectorAll(".main-nav .tab-button").forEach(button=>{
-       button.style.removeProperty("display");
-       button.hidden=false;
-       button.removeAttribute("aria-hidden");
-     });
-   }
+   // Menu principal padronizado: operações ficam dentro de Gerenciamento para todos.
+   const allowedMainTabs=new Set(["profile","management","chat"]);
+   document.querySelectorAll(".main-nav .tab-button").forEach(button=>{
+     const visible=allowedMainTabs.has(button.dataset.tab);
+     button.hidden=!visible;
+     button.setAttribute("aria-hidden",String(!visible));
+     if(visible)button.style.removeProperty("display");
+     else button.style.setProperty("display","none","important");
+   });
    $("createGroupChat").hidden=adminMain;
    if(adminMain){
      document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));

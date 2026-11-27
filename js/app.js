@@ -655,10 +655,10 @@ async function loadProducts(){try{
    const obs=document.createElement("td");obs.textContent=p.description||"—";tr.appendChild(obs);
   }
   const actions=document.createElement("td");
-  if(!isInactive&&!asset){["ENTRADA","SAIDA"].forEach(type=>{
+  if(!isInactive&&!asset&&(!["operador","admin_setor"].includes(currentUser?.role)||currentUser?.sector==="Estoque")){["ENTRADA","SAIDA"].forEach(type=>{
    const b=document.createElement("button");b.textContent=type==="ENTRADA"?"Entrada +":"Saída −";b.className=type==="SAIDA"?"secondary":"";b.style.margin="2px";b.addEventListener("click",()=>stockMove(p,type));actions.appendChild(b);
   });}
-  if(!isInactive&&asset){
+  if(!isInactive&&asset&&(["admin","superadmin"].includes(currentUser?.role)||(currentUser?.role==="operador"&&currentUser?.sector!=="Estoque"))){
    const transfer=document.createElement("button");transfer.textContent="Transferir ou devolver";transfer.style.margin="2px";
    transfer.addEventListener("click",async()=>{
     const choices=cachedSectors.map(s=>s.name);

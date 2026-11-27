@@ -570,13 +570,14 @@ async function loadSectors(){
    const el=$(id);if(!el)return;
    const previous=el.value;el.replaceChildren();
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
-   cachedSectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
+   cachedSectors.filter(s=>s.active!==false&&(!["productSector","assetSector"].includes(id)||s.name==="Estoque")).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
    if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
    else if(id==="requestAssetSector")el.value=currentUser?.sector||"";
    else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
    else if(["operador","admin_setor"].includes(currentUser?.role)&&cachedSectors.some(s=>s.name===currentUser.sector&&s.active!==false)){el.value=currentUser.sector;el.disabled=true;}
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
+  const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=!(["admin","superadmin"].includes(currentUser?.role)||(["admin_setor","operador"].includes(currentUser?.role)&&currentUser?.sector==="Estoque"));
   const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const row=document.createElement("div");row.className="management-row";const label=document.createElement("span");label.textContent=s.name+" — "+(s.active===false?"inativo":"ativo");row.appendChild(label);
    if(["superadmin","admin"].includes(currentUser?.role)&&s.active!==false){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
    const pause=document.createElement("button");pause.type="button";pause.textContent="Pausar";pause.className="secondary";pause.addEventListener("click",async()=>{if(!confirm("Pausar o setor "+s.name+"?"))return;try{await api("/sectors/"+s._id+"/deactivate",{method:"PATCH"});await loadSectors();message("Setor pausado.");}catch(err){message(err.message,true);}});row.appendChild(pause);const del=document.createElement("button");del.type="button";del.textContent="Excluir";del.className="danger";del.addEventListener("click",async()=>{if(!confirm("Excluir definitivamente da lista o setor "+s.name+"? O histórico será preservado."))return;try{await api("/sectors/"+s._id,{method:"DELETE"});await loadSectors();message("Setor excluído.");}catch(err){message(err.message,true);}});row.appendChild(del);}

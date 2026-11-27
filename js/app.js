@@ -104,7 +104,7 @@ function showLoggedIn(user) {
   $("userRole").disabled=user.role==="admin_setor";$("userRole").value=user.role==="admin_setor"?"operador":$("userRole").value;
   $("userSector").disabled=user.role==="admin_setor";if(user.role==="admin_setor")$("userSector").value=user.sector;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
-  $("createCompaniesTab").hidden=!isSuperAdmin; if($("createSectorsTab"))$("createSectorsTab").hidden=user.role==="admin_setor";
+  $("createCompaniesTab").hidden=!isSuperAdmin; document.querySelector('[data-create-section="sectors"]').hidden=user.role==="admin_setor";
   $("createCompanyDataTab").hidden=user.role!=="admin";
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);

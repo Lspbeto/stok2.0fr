@@ -660,7 +660,7 @@ async function loadProducts(){try{
    transfer.addEventListener("click",async()=>{
     const choices=cachedSectors.map(s=>s.name);
     const suggested=p.responsibleSector==="Estoque"?"":"Estoque";
-    const sector=prompt("Informe o setor de destino do patrimônio "+p.patrimonyCode+". Digite Estoque para devolver. Setores: "+choices.join(", "),suggested);
+    const sector=prompt(currentUser.role==="operador"?"Confirme a devolução do patrimônio "+p.patrimonyCode+" ao setor Estoque. Digite Estoque:":"Informe o setor de destino do patrimônio "+p.patrimonyCode+". Digite Estoque para devolver. Setores: "+choices.join(", "),suggested);
     if(!sector)return;
     try{const d=await api("/products/"+p._id+"/transfer",{method:"POST",body:JSON.stringify({sector:sector.trim()})});message(d.message);await loadProducts();await loadHistory();if(currentUser.role==="operador")await loadAuthorizations();}catch(err){message(err.message,true);}
    });

@@ -48,7 +48,7 @@ function showLoggedIn(user) {
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   renderProfile(user);
-   $("managementTab").hidden=false; $("createTab").hidden=!isAdmin; $("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
+   $("managementTab").hidden=false; $("createTab")?.hidden=!isAdmin; $("dashboardTab")?.hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportsTab")?.hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; $("globalReportTab")?.hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("databaseTab")?.hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
    // O administrador geral tem somente três áreas principais.
    if(isSuperAdmin){
@@ -60,9 +60,9 @@ function showLoggedIn(user) {
      $("managementReportFilter").hidden=false;
      $("managementAuthorizations").hidden=false;
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
-     $("managementHistory").hidden=false; $("managementCreate").hidden=false;
+     $("managementHistory")?.hidden=false; $("managementCreate").hidden=false;
      $("managementGlobalReport").hidden=false; $("managementDatabase").hidden=false;
-     $("managementDashboard").hidden=false; $("managementReports").hidden=false;
+     $("managementDashboard").hidden=false; $("managementReports")?.hidden=false;
    }else if(user.role==="admin"){
      $("profileTab").hidden=false; $("managementTab").hidden=false; $("chatTab").hidden=false;
      ["productsTab","deliveriesTab","createTab","dashboardTab","globalReportTab","databaseTab","activitiesTab","approvalsTab","reportsTab","authorizationsTab"].forEach(id=>{if($(id))$(id).hidden=true;});
@@ -71,9 +71,9 @@ function showLoggedIn(user) {
      $("managementCreate").hidden=false;
      $("managementAuthorizations").hidden=false;
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
-     $("managementHistory").hidden=false; $("managementCreate").hidden=true;
+     $("managementHistory")?.hidden=false; $("managementCreate").hidden=true;
      $("managementGlobalReport").hidden=true; $("managementDatabase").hidden=true;
-     $("managementDashboard").hidden=false; $("managementReports").hidden=false;
+     $("managementDashboard").hidden=false; $("managementReports")?.hidden=false;
    }else{
      // Todos os perfis acessam as operações permitidas a partir de Gerenciamento.
      $("profileTab").hidden=false;

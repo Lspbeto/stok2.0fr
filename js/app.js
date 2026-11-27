@@ -109,7 +109,7 @@ function showLoggedIn(user) {
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
-  $("deliveryForm").hidden=user.role!=="admin"; if($("productForm"))$("productForm").hidden=user.role==="operador";
+  $("deliveryForm").hidden=user.role!=="admin"; if($("productForm"))$("productForm").hidden=user.role==="operador"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
@@ -670,17 +670,17 @@ async function loadProducts(){try{
     exit.addEventListener("click",async()=>{const reason=prompt("Motivo da saída definitiva do bem:");if(reason===null)return;try{const d=await api("/products/"+p._id+"/exit",{method:"POST",body:JSON.stringify({reason})});message(d.message);await loadProducts();}catch(err){message(err.message,true);}});actions.appendChild(exit);
    }
   }
-  if(currentUser.role==="superadmin"&&!isInactive){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.style.margin="2px";edit.addEventListener("click",async()=>{
+  if(["superadmin","admin","admin_setor"].includes(currentUser.role)&&!isInactive&&!(currentUser.role==="admin_setor"&&asset)){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.style.margin="2px";edit.addEventListener("click",async()=>{
    const name=prompt("Nome do produto/bem:",p.name);if(name===null)return;
-   const sector=prompt("Setor responsável:",p.responsibleSector||"");if(sector===null)return;
+   const sector=currentUser.role==="admin_setor"?p.responsibleSector:prompt("Setor responsável:",p.responsibleSector||"");if(sector===null)return;
    const description=prompt("Descrição / observações:",p.description||"");if(description===null)return;
-   const payload={name,responsibleSector:sector,sector,description};
+   const payload=currentUser.role==="admin_setor"?{name,description}:{name,responsibleSector:sector,sector,description};
    if(!asset){const qty=prompt("Quantidade atual:",String(p.quantity??0));if(qty===null)return;payload.quantity=Number(qty);const unit=prompt("Unidade:",p.unit||"un");if(unit===null)return;payload.unit=unit;const code=prompt("Código:",p.code||"");if(code===null)return;payload.code=code;const expiry=prompt("Validade (AAAA-MM-DD, vazio se não houver):",p.expiryDate?String(p.expiryDate).slice(0,10):"");if(expiry===null)return;payload.expiryDate=expiry||null;}
    else{const condition=prompt("Estado de conservação:",p.condition||"");if(condition===null)return;payload.condition=condition;const code=prompt("Número de patrimônio:",p.patrimonyCode||"");if(code===null)return;payload.patrimonyCode=code;}
    try{await api("/products/"+p._id,{method:"PUT",body:JSON.stringify(payload)});await loadProducts();message("Cadastro atualizado.");}catch(err){message(err.message,true);}
   });actions.appendChild(edit);}
   if(currentUser.role==="superadmin"&&isInactive){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{if(!confirm("Restaurar "+p.name+"?"))return;try{await api("/products/"+p._id+"/restore",{method:"PATCH"});await loadProducts();message("Produto restaurado.");}catch(err){message(err.message,true);}});actions.appendChild(restore);}
-  if(!isInactive&&["admin","superadmin"].includes(currentUser.role)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
+  if(!isInactive&&["admin","superadmin","admin_setor"].includes(currentUser.role)&&!(currentUser.role==="admin_setor"&&asset)){const del=document.createElement("button");del.textContent="Excluir";del.className="danger";del.style.margin="2px";del.addEventListener("click",async()=>{if(!confirm("Deseja desativar "+p.name+"?"))return;try{await api("/products/"+p._id,{method:"DELETE"});loadProducts();message("Item desativado.");}catch(err){message(err.message,true);}});actions.appendChild(del);}tr.appendChild(actions);
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}

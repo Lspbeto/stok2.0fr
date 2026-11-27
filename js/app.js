@@ -1089,8 +1089,7 @@ $("chatForm").addEventListener("submit",async e=>{
     fill("adjustProduct",own,p=>p.name+" — registrado "+p.quantity+" "+p.unit);
     const sector=$("requestAssetSector"),previous=sector.value;sector.replaceChildren();
     cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sector.appendChild(o);});
-    if(cachedSectors.some(s=>s.name===previous))sector.value=previous;
-    else if(cachedSectors.some(s=>s.name==="Estoque"))sector.value="Estoque";
+    if(cachedSectors.some(s=>s.name===currentUser.sector))sector.value=currentUser.sector;
    }
    if(!window.stokAuthorizationTimer)window.stokAuthorizationTimer=window.setInterval(()=>{const tab=$("authorizations");if(currentUser&&tab&&!tab.hidden)loadAuthorizations();},5000);
   const requests=await api("/authorizations"),box=$("authorizationList");box.replaceChildren();

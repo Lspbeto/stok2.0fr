@@ -619,7 +619,7 @@ $("productForm").addEventListener("submit",async e=>{e.preventDefault();try{
   description:asset?"":$("description").value.trim(),
   patrimonyCode:asset?$("patrimonyCode").value.trim():"",
   condition:asset?$("condition").value.trim():"",
-  responsibleSector:asset?$("assetSector").value:$("productSector").value, sector:asset?$("assetSector").value:$("productSector").value
+  responsibleSector:"Estoque",sector:"Estoque"
  };
  await api("/products",{method:"POST",body:JSON.stringify(payload)});
  e.target.reset();$("quantity").value=0;$("assetQuantity").value=1;toggleProductFields();await loadProducts();message("Item cadastrado.");

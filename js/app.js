@@ -109,7 +109,7 @@ function showLoggedIn(user) {
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
-  $("deliveryForm").hidden=user.role!=="admin";
+  $("deliveryForm").hidden=user.role!=="admin"; if($("productForm"))$("productForm").hidden=user.role==="operador";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
@@ -684,7 +684,7 @@ async function loadProducts(){try{
   (asset?$("assetsBody"):$("goodsBody")).appendChild(tr);
  });
  }catch(err){message(err.message,true);}}
-async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reasonType=type==="SAIDA"?(prompt("Justificativa: AVARIA, VENDA, CONSUMO, DOACAO ou OUTRO","CONSUMO")||"").toUpperCase():"";const reason=prompt("Descreva a justificativa da movimentação:")||"";if(type==="SAIDA"&&!reason.trim()){message("A justificativa é obrigatória para registrar uma saída.",true);return;}try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason,reasonType})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
+async function stockMove(p,type){const raw=prompt("Quantidade para "+(type==="ENTRADA"?"entrada":"saída")+" de "+p.name+" ("+(p.unit||"un")+"):");if(raw===null)return;const quantity=Number(raw);if(!Number.isFinite(quantity)||quantity<=0){message("Digite uma quantidade maior que zero.",true);return;}const reasonType=type==="SAIDA"?(prompt("Justificativa: AVARIA, VENDA, CONSUMO, DOACAO, EXTRAVIO ou OUTRO","CONSUMO")||"").toUpperCase():"";const reason=prompt("Descreva a justificativa da movimentação:")||"";if(type==="SAIDA"&&!reason.trim()){message("A justificativa é obrigatória para registrar uma saída.",true);return;}try{await api("/movements/stock",{method:"POST",body:JSON.stringify({productId:p._id,type,quantity,reason,reasonType})});await loadProducts();message("Movimentação registrada.");}catch(err){message(err.message,true);}}
 function dateParams(){const p=new URLSearchParams();if($("fromDate").value)p.set("from",$("fromDate").value);if($("toDate").value)p.set("to",$("toDate").value);return p.toString();}
 $("filterHistory").addEventListener("click",loadHistory);
 $("historySearch").addEventListener("input",renderHistory);
@@ -910,7 +910,7 @@ async function checkUserDuplicates(){
   const matches=[...new Map(responses.flat().map(user=>[user._id,user])).values()];
   box.replaceChildren();if(!matches.length){box.hidden=true;return;}
   const heading=document.createElement("strong");heading.textContent="Possíveis cadastros já existentes";box.appendChild(heading);
-  matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
+  matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — "+(user.sector||"Sem setor")+" — "+(user.deletedAt?"excluído":user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
  }catch(err){box.hidden=true;}
 }
 ["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));
@@ -928,7 +928,7 @@ async function checkCompanyDuplicates(){
   const matches=[...new Map(results.flat().map(x=>[x._id,x])).values()];
   box.replaceChildren();if(!matches.length){box.hidden=true;return;}
   const title=document.createElement("strong");title.textContent="Empresas já cadastradas ou semelhantes";box.appendChild(title);
-  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — CNPJ "+x.cnpj+" — "+(x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
+  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — CNPJ "+x.cnpj+" — "+(x.deletedAt?"excluída":x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
  }catch(e){box.hidden=true;}
 }
 $("companyName")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
@@ -938,7 +938,7 @@ async function checkSectorDuplicates(){
  const q=($("sectorName")?.value||"").trim();if(q.length<2){box.hidden=true;box.replaceChildren();return;}
  try{const matches=await api("/sectors/check?q="+encodeURIComponent(q));box.replaceChildren();if(!matches.length){box.hidden=true;return;}
  const title=document.createElement("strong");title.textContent="Setores já cadastrados ou semelhantes";box.appendChild(title);
- matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — "+(x.active===false?"inativo":"ativo");box.appendChild(row);});box.hidden=false;
+ matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — "+(x.deletedAt?"excluído":x.active===false?"pausado":"ativo");box.appendChild(row);});box.hidden=false;
  }catch(e){box.hidden=true;}
 }
 $("sectorName")?.addEventListener("input",()=>{clearTimeout(sectorDuplicateTimer);sectorDuplicateTimer=setTimeout(checkSectorDuplicates,250);});

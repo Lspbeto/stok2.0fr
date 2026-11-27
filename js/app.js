@@ -940,7 +940,7 @@ async function loadChatContacts(){
  try{
   if(!$("chatCompany").value)return;
   const query=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
-  let users=await api("/chat/contacts"+query);if(currentUser.role==="admin")users=users.filter(user=>user.role==="superadmin");const select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
+  let users=await api("/chat/contacts"+query);const select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
   select.replaceChildren();
   users.forEach(user=>{const option=document.createElement("option");option.value=user._id;option.textContent=user.name+" — "+user.sector+" ("+user.role+")";option.selected=previous.has(user._id);select.appendChild(option);});
  }catch(err){message(err.message,true);}
@@ -948,7 +948,6 @@ async function loadChatContacts(){
 async function createChatConversation(type){
  try{
   const participants=[...$("chatContacts").selectedOptions].map(x=>x.value);
-  if(["admin","superadmin"].includes(currentUser.role)&&type!=="DIRECT"){message("O chat do administrador geral permite conversa privada com ADM da empresa, ADM de setor ou operador da empresa selecionada.",true);return;}
   if(type==="DIRECT"&&participants.length!==1){message("Selecione exatamente uma pessoa para a conversa privada.",true);return;}
   if(type==="GROUP"&&participants.length<1){message("Selecione pelo menos uma pessoa para o grupo.",true);return;}
   if(type==="GROUP"&&!$("chatGroupName").value.trim()){message("Informe um nome para o grupo.",true);$("chatGroupName").focus();return;}

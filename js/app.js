@@ -725,7 +725,7 @@ async function loadDeliveries(){
  try{
   const items=await api("/deliveries");const products=currentUser?.role==="superadmin"&&!selectedCompanyId?[]:await api("/products");
   const select=$("deliveryProduct");select.replaceChildren();
-  products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — patrimônio: "+(p.patrimonyCode||"não informado")+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
+  products.filter(p=>p.active!==false&&(p.category==="BEM"||Number(p.quantity)>0)).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — patrimônio: "+(p.patrimonyCode||"não informado")+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
   const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");
   function updateDeliveryQuantity(){
    const selected=products.find(p=>p._id===deliveryProduct.value),asset=selected?.category==="BEM";

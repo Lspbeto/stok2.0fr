@@ -921,18 +921,19 @@ $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await a
 let companyDuplicateTimer=null,sectorDuplicateTimer=null;
 async function checkCompanyDuplicates(){
  const box=$("companyDuplicateSuggestions");if(!box)return;
- const values=[$("companyName")?.value||"",$("companyCnpj")?.value||""].map(x=>x.trim()).filter(x=>x.length>=2);
+ const values=[$("companyName")?.value||"",$("companyCnpj")?.value||"",$("companyAdminEmail")?.value||""].map(x=>x.trim()).filter(x=>x.length>=2);
  if(!values.length){box.hidden=true;box.replaceChildren();return;}
  try{
   const results=await Promise.all(values.map(q=>api("/companies/check?q="+encodeURIComponent(q))));
-  const matches=[...new Map(results.flat().map(x=>[x._id,x])).values()];
+  const matches=[...new Map(results.flat().map(x=>[(x.kind||"company")+x._id,x])).values()];
   box.replaceChildren();if(!matches.length){box.hidden=true;return;}
   const title=document.createElement("strong");title.textContent="Empresas já cadastradas ou semelhantes";box.appendChild(title);
-  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — CNPJ "+x.cnpj+" — "+(x.deletedAt?"excluída":x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
+  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.kind==="user"?"E-mail já cadastrado: "+x.name+" — "+x.email+" — "+x.role+" — "+(x.companyId?.name||"empresa não identificada"):"Empresa: "+x.name+" — CNPJ "+x.cnpj+" — "+(x.deletedAt?"excluída":x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
  }catch(e){box.hidden=true;}
 }
 $("companyName")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
 $("companyCnpj")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
+$("companyAdminEmail")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
 async function checkSectorDuplicates(){
  const box=$("sectorDuplicateSuggestions");if(!box)return;
  const q=($("sectorName")?.value||"").trim();if(q.length<2){box.hidden=true;box.replaceChildren();return;}

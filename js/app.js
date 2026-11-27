@@ -110,7 +110,7 @@ function showLoggedIn(user) {
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
-  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role)||(user.role==="superadmin"&&!selectedCompanyId); if($("productForm"))$("productForm").hidden=user.role==="operador"&&user.sector!=="Estoque"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role)||(user.role==="superadmin"&&!selectedCompanyId); if($("productForm"))$("productForm").hidden=["operador","admin_setor"].includes(user.role)&&user.sector!=="Estoque"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();

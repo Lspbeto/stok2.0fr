@@ -1086,7 +1086,7 @@ $("chatForm").addEventListener("submit",async e=>{
     const own=products.filter(p=>p.category==="MERCADORIA"&&p.responsibleSector===currentUser.sector);
     const fill=(id,items,label)=>{const el=$(id),old=el.value;el.replaceChildren();items.forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=label(p);el.appendChild(o);});if(items.some(p=>p._id===old))el.value=old;};
     fill("requestAsset",assets,p=>p.name+" — patrimônio "+p.patrimonyCode);
-    fill("requestProduct",stock,p=>p.name+" — disponível "+p.quantity+" "+p.unit);
+    fill("requestProduct",stock,p=>p.name+" — "+(p.unit||"un"));
     fill("adjustProduct",own,p=>p.name+" — registrado "+p.quantity+" "+p.unit);
     const sector=$("requestAssetSector"),previous=sector.value;sector.replaceChildren();
     cachedSectors.forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;sector.appendChild(o);});

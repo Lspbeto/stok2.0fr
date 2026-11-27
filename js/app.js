@@ -917,6 +917,32 @@ async function checkUserDuplicates(){
 $("userSearch")?.addEventListener("input",()=>{const q=$("userSearch").value.toLocaleLowerCase("pt-BR");$("userList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
+// Verificação em tempo real de cadastros de empresa e setor.
+let companyDuplicateTimer=null,sectorDuplicateTimer=null;
+async function checkCompanyDuplicates(){
+ const box=$("companyDuplicateSuggestions");if(!box)return;
+ const values=[$("companyName")?.value||"",$("companyCnpj")?.value||""].map(x=>x.trim()).filter(x=>x.length>=2);
+ if(!values.length){box.hidden=true;box.replaceChildren();return;}
+ try{
+  const results=await Promise.all(values.map(q=>api("/companies/check?q="+encodeURIComponent(q))));
+  const matches=[...new Map(results.flat().map(x=>[x._id,x])).values()];
+  box.replaceChildren();if(!matches.length){box.hidden=true;return;}
+  const title=document.createElement("strong");title.textContent="Empresas já cadastradas ou semelhantes";box.appendChild(title);
+  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — CNPJ "+x.cnpj+" — "+(x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
+ }catch(e){box.hidden=true;}
+}
+$("companyName")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
+$("companyCnpj")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
+async function checkSectorDuplicates(){
+ const box=$("sectorDuplicateSuggestions");if(!box)return;
+ const q=($("sectorName")?.value||"").trim();if(q.length<2){box.hidden=true;box.replaceChildren();return;}
+ try{const matches=await api("/sectors/check?q="+encodeURIComponent(q));box.replaceChildren();if(!matches.length){box.hidden=true;return;}
+ const title=document.createElement("strong");title.textContent="Setores já cadastrados ou semelhantes";box.appendChild(title);
+ matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.name+" — "+(x.active===false?"inativo":"ativo");box.appendChild(row);});box.hidden=false;
+ }catch(e){box.hidden=true;}
+}
+$("sectorName")?.addEventListener("input",()=>{clearTimeout(sectorDuplicateTimer);sectorDuplicateTimer=setTimeout(checkSectorDuplicates,250);});
+
 // Carrega empresas ativas para o cadastro.
 async function loadPublicCompanies(){
  try{

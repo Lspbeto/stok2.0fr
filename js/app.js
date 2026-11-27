@@ -198,6 +198,7 @@ $("companyForm").addEventListener("submit", async e => {
         contract: await readCompanyContract(),
         adminName: $("companyAdminName").value,
         email: $("companyAdminEmail").value,
+        adminCpf: $("companyAdminCpf")?.value||"",
         password: $("companyAdminPassword").value
       })
     });
@@ -733,14 +734,15 @@ async function loadDeliveries(){
    deliveryQuantity.title=asset?"Bem permanente é controlado individualmente (1 unidade).":"";
   }
   deliveryProduct.onchange=updateDeliveryQuantity;updateDeliveryQuantity();
-  $("deliveryForm").hidden=currentUser.role!=="admin";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(currentUser.role)||(currentUser.role==="superadmin"&&!selectedCompanyId);
   $("deliveryList").replaceChildren();
   items.forEach(d=>{
    const card=document.createElement("article");card.className="panel";
    const title=document.createElement("h3");title.textContent=d.productName+" — "+d.sector;card.appendChild(title);
-   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent=(d.patrimonyCode?"Patrimônio: "+d.patrimonyCode+" | ":"")+"Cadastrado por: "+(d.createdByName||"Não informado")+" | Entregue por: "+(d.userName||"Não informado")+" | Cadastrado originalmente no setor: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor que recebeu: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
+   const canAccount=currentUser.role!=="superadmin"||!!selectedCompanyId;
+   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent=(d.companyName?"Empresa: "+d.companyName+" | ":"")+(d.patrimonyCode?"Patrimônio: "+d.patrimonyCode+" | ":"")+"Cadastrado por: "+(d.createdByName||"Não informado")+" | Entregue por: "+(d.userName||"Não informado")+" | Cadastrado originalmente no setor: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor que recebeu: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
    (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" | Ação realizada no setor: "+(e.actionSector||e.sector||d.sector)+" | Origem: "+(e.sourceSector||d.sector)+" | Setor de destino/ocorrência: "+(e.destinationSector||d.sector)+" | "+e.quantity+" "+e.unit+" | "+(e.details||"");card.appendChild(p);});
-   if(!d.closed){
+   if(!d.closed&&canAccount){
     const form=document.createElement("form");form.className="form-grid";
     const isAsset=d.category==="BEM";
     const type=document.createElement("select");(isAsset?["DEVOLUCAO","TRANSFERENCIA","AVARIA","EXTRAVIO","DOACAO","VENDA","OUTRO"]:["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"]).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
@@ -754,7 +756,7 @@ async function loadDeliveries(){
     form.addEventListener("submit",async ev=>{ev.preventDefault();try{await api("/deliveries/"+d._id+"/account",{method:"POST",body:JSON.stringify({type:type.value,quantity:Number(qty.value),note:note.value,targetSector:target.value})});message("Destino registrado no histórico.");loadDeliveries();}catch(err){message(err.message,true);}});
     card.appendChild(form);
     const close=document.createElement("button");close.textContent="Concluir prestação de contas";close.addEventListener("click",async()=>{try{await api("/deliveries/"+d._id+"/close",{method:"POST"});message("Prestação concluída.");loadDeliveries();}catch(err){message(err.message,true);}});card.appendChild(close);
-   }
+   }else if(!canAccount&&!d.closed){const note=document.createElement("small");note.textContent="Selecione uma empresa para registrar movimentações nesta prestação de contas.";card.appendChild(note);}
    $("deliveryList").appendChild(card);
   });
  }catch(err){message(err.message,true);}
@@ -915,7 +917,7 @@ async function checkUserDuplicates(){
 }
 ["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));
 $("userSearch")?.addEventListener("input",()=>{const q=$("userSearch").value.toLocaleLowerCase("pt-BR");$("userList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
-$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();if(currentUser.role==="admin_setor"){$("userRole").value="operador";$("userSector").value=currentUser.sector;}$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
+$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,cpf:$("userCpf")?.value||"",password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();if(currentUser.role==="admin_setor"){$("userRole").value="operador";$("userSector").value=currentUser.sector;}$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
 // Verificação em tempo real de cadastros de empresa e setor.
 let companyDuplicateTimer=null,sectorDuplicateTimer=null;

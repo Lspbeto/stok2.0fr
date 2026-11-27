@@ -298,7 +298,7 @@ async function loadCompaniesList() {
     if (!companies.length) { box.textContent = "Nenhuma empresa cadastrada."; return; }
     companies.forEach(company => {
       const item=document.createElement("div");item.className="management-row";
-      const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa")+" | CNPJ: "+(company.cnpj||"—")+" | "+[company.address,company.neighborhood,company.city].filter(Boolean).join(", ");item.appendChild(label);
+      const label=document.createElement("span");label.textContent=company.name+" ("+company.slug+") — "+(company.active===false?"inativa":"ativa")+(company.testRegistration?" — CADASTRO DE TESTE":"")+" | CNPJ: "+(company.cnpj||"—")+" | "+[company.address,company.neighborhood,company.city].filter(Boolean).join(", ");item.appendChild(label);
       if(company.contract?.fileName){const contract=document.createElement("button");contract.type="button";contract.textContent="Ver contrato";contract.addEventListener("click",async()=>{try{await openCompanyContract(company._id);}catch(err){message(err.message,true);}});item.appendChild(contract);}
       const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Nome da empresa:",company.name);if(name===null)return;const slug=prompt("Identificador:",company.slug);if(slug===null)return;try{await api("/companies/"+company._id,{method:"PATCH",body:JSON.stringify({name,slug})});await loadCompaniesList();message("Empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(edit);
       const action=document.createElement("button");action.type="button";action.textContent=company.active===false?"Reativar":"Pausar";action.className="secondary";action.addEventListener("click",async()=>{if(!confirm((company.active===false?"Reativar":"Pausar")+" a empresa "+company.name+"?"))return;try{await api("/companies/"+company._id+(company.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadCompaniesList();await loadGlobalCompanySelector();message("Situação da empresa atualizada.");}catch(err){message(err.message,true);}});item.appendChild(action);if(currentUser?.role==="superadmin"){const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir";remove.className="danger";remove.addEventListener("click",async()=>{if(!confirm("Excluir a empresa "+company.name+"? Os registros serão preservados para auditoria."))return;try{await api("/companies/"+company._id,{method:"DELETE"});await loadCompaniesList();await loadGlobalCompanySelector();message("Empresa excluída.");}catch(err){message(err.message,true);}});item.appendChild(remove);}box.appendChild(item);
@@ -888,10 +888,10 @@ async function loadUsersList(){
    const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;
    const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — CPF: "+(user.cpf||"não informado")+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{
-    const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;
+    const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;const cpf=prompt("CPF (opcional):",user.cpf||"");if(cpf===null)return;
     const profile=currentUser.role==="admin_setor"?"operador":prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;
     const sector=currentUser.role==="admin_setor"?currentUser.sector:prompt("Setor:",user.sector||"");if(sector===null)return;
-    try{await api("/users/"+user._id,{method:"PATCH",body:JSON.stringify({name,email,role:profile,sector})});await loadUsersList();message("Usuário atualizado.");}catch(err){message(err.message,true);}
+    try{await api("/users/"+user._id,{method:"PATCH",body:JSON.stringify({name,email,cpf,role:profile,sector})});await loadUsersList();message("Usuário atualizado.");}catch(err){message(err.message,true);}
    });row.appendChild(edit);
    const action=document.createElement("button");action.type="button";action.textContent=user.active===false?"Reativar":"Pausar";action.className=user.active===false?"":"secondary";action.addEventListener("click",async()=>{
     if(!confirm((user.active===false?"Reativar":"Desativar")+" o acesso de "+user.name+"?"))return;
@@ -914,7 +914,7 @@ async function checkUserDuplicates(){
   matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — CPF: "+(user.cpf||"não informado")+" — "+(user.sector||"Sem setor")+" — "+(user.deletedAt?"excluído":user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
  }catch(err){box.hidden=true;}
 }
-["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));
+["userName","userEmail","userCpf"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));
 $("userSearch")?.addEventListener("input",()=>{const q=$("userSearch").value.toLocaleLowerCase("pt-BR");$("userList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
 $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,cpf:$("userCpf")?.value||"",password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();if(currentUser.role==="admin_setor"){$("userRole").value="operador";$("userSector").value=currentUser.sector;}$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
@@ -922,19 +922,20 @@ $("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await a
 let companyDuplicateTimer=null,sectorDuplicateTimer=null;
 async function checkCompanyDuplicates(){
  const box=$("companyDuplicateSuggestions");if(!box)return;
- const values=[$("companyName")?.value||"",$("companyCnpj")?.value||"",$("companyAdminEmail")?.value||""].map(x=>x.trim()).filter(x=>x.length>=2);
+ const values=[$("companyName")?.value||"",$("companyCnpj")?.value||"",$("companyAdminEmail")?.value||"",$("companyAdminCpf")?.value||""].map(x=>x.trim()).filter(x=>x.length>=2);
  if(!values.length){box.hidden=true;box.replaceChildren();return;}
  try{
   const results=await Promise.all(values.map(q=>api("/companies/check?q="+encodeURIComponent(q))));
   const matches=[...new Map(results.flat().map(x=>[(x.kind||"company")+x._id,x])).values()];
   box.replaceChildren();if(!matches.length){box.hidden=true;return;}
   const title=document.createElement("strong");title.textContent="Empresas já cadastradas ou semelhantes";box.appendChild(title);
-  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.kind==="user"?"E-mail já cadastrado: "+x.name+" — "+x.email+" — "+x.role+" — "+(x.companyId?.name||"empresa não identificada"):"Empresa: "+x.name+" — CNPJ "+x.cnpj+" — "+(x.deletedAt?"excluída":x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
+  matches.forEach(x=>{const row=document.createElement("div");row.className="duplicate-suggestion";row.textContent=x.kind==="user"?"E-mail já cadastrado: "+x.name+" — "+x.email+" — CPF: "+(x.cpf||"não informado")+" — "+x.role+" — "+(x.companyId?.name||"empresa não identificada"):"Empresa: "+x.name+" — CNPJ "+x.cnpj+" — "+(x.deletedAt?"excluída":x.active===false?"pausada":"ativa");box.appendChild(row);});box.hidden=false;
  }catch(e){box.hidden=true;}
 }
 $("companyName")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
 $("companyCnpj")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
 $("companyAdminEmail")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
+$("companyAdminCpf")?.addEventListener("input",()=>{clearTimeout(companyDuplicateTimer);companyDuplicateTimer=setTimeout(checkCompanyDuplicates,250);});
 async function checkSectorDuplicates(){
  const box=$("sectorDuplicateSuggestions");if(!box)return;
  const q=($("sectorName")?.value||"").trim();if(q.length<2){box.hidden=true;box.replaceChildren();return;}

@@ -104,7 +104,7 @@ function showLoggedIn(user) {
   $("userRole").disabled=user.role==="admin_setor";$("userRole").value=user.role==="admin_setor"?"operador":$("userRole").value;
   $("userSector").disabled=user.role==="admin_setor";if(user.role==="admin_setor")$("userSector").value=user.sector;
   const adminRoleOption=$("userRole").querySelector('option[value="admin"]'); if(adminRoleOption)adminRoleOption.hidden=!isSuperAdmin; const sectorAdminOption=$("userRole").querySelector('option[value="admin_setor"]'); if(sectorAdminOption)sectorAdminOption.hidden=!isAdmin; if(!isSuperAdmin&&$("userRole").value==="admin")$("userRole").value="operador";
-  $("createCompaniesTab").hidden=!isSuperAdmin;
+  $("createCompaniesTab").hidden=!isSuperAdmin; if($("createSectorsTab"))$("createSectorsTab").hidden=user.role==="admin_setor";
   $("createCompanyDataTab").hidden=user.role!=="admin";
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
@@ -915,7 +915,7 @@ async function checkUserDuplicates(){
 }
 ["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));
 $("userSearch")?.addEventListener("input",()=>{const q=$("userSearch").value.toLocaleLowerCase("pt-BR");$("userList").querySelectorAll(".management-row").forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase("pt-BR").includes(q));});
-$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
+$("userForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/users",{method:"POST",body:JSON.stringify({name:$("userName").value,email:$("userEmail").value,password:$("userPassword").value,role:$("userRole").value,sector:$("userSector").value,...(currentUser.role==="superadmin"?{companyId:selectedCompanyId}:{})})});e.target.reset();if(currentUser.role==="admin_setor"){$("userRole").value="operador";$("userSector").value=currentUser.sector;}$("userDuplicateSuggestions").hidden=true;await loadUsersList();message("Usuário criado.");}catch(err){message(err.message,true);}});
 
 // Verificação em tempo real de cadastros de empresa e setor.
 let companyDuplicateTimer=null,sectorDuplicateTimer=null;

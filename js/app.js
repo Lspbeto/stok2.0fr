@@ -723,7 +723,7 @@ $("emailForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 // Carrega entregas e permite lançar destinos conforme o setor do operador.
 async function loadDeliveries(){
  try{
-  const [items,products]=await Promise.all([api("/deliveries"),api("/products")]);
+  const items=await api("/deliveries");const products=currentUser?.role==="superadmin"&&!selectedCompanyId?[]:await api("/products");
   const select=$("deliveryProduct");select.replaceChildren();
   products.filter(p=>p.active!==false).forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=p.category==="BEM"?"[BEM PERMANENTE] "+p.name+" — patrimônio: "+(p.patrimonyCode||"não informado")+" — responsável: "+(p.responsibleSector||"Estoque"):"[MERCADORIA] "+p.name+" — disponível: "+p.quantity+" "+p.unit;select.appendChild(o);});
   const deliveryProduct=$("deliveryProduct"),deliveryQuantity=$("deliveryQuantity");

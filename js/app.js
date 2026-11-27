@@ -266,7 +266,7 @@ function renderGlobalCompaniesUsersReport(){
  });
  deletedCompanies.forEach(company=>{const info=document.createElement("div");info.className="management-info";info.textContent="EMPRESA: "+company.name+" ("+company.slug+")";const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluída em: "+stamp(company.deletedAt);makeRow(deletedCompanyBox,[info,meta]);});
  deletedSectors.forEach(sector=>{const info=document.createElement("div");info.className="management-info";info.textContent="SETOR: "+sector.name+" | "+(sector.companyId?.name||"Empresa não identificada");const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluído em: "+stamp(sector.deletedAt);makeRow(deletedSectorBox,[info,meta]);});
- deletedUsers.forEach(user=>{const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;const info=document.createElement("div");info.className="management-info";info.textContent="USUÁRIO: "+user.name+" | "+user.email+" | "+role+" | "+(user.companyId?.name||"Empresa não identificada");const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluído em: "+stamp(user.deletedAt);makeRow(deletedUserBox,[info,meta]);});
+ deletedUsers.forEach(user=>{const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;const info=document.createElement("div");info.className="management-info";info.textContent="USUÁRIO: "+user.name+" | "+user.email+" | "+role+" | "+(user.companyId?.name||"Empresa não identificada");const meta=document.createElement("small");meta.className="management-meta";meta.textContent="Excluído em: "+stamp(user.deletedAt)+" | Excluído por: "+(user.deletedByName||"Não identificado")+" | "+(user.companyId?.name||"Empresa não identificada");makeRow(deletedUserBox,[info,meta]);});
 }
 
 $("globalReportRefresh")?.addEventListener("click",loadGlobalCompaniesUsersReport);
@@ -352,11 +352,11 @@ $("resetForm").addEventListener("submit",async e=>{e.preventDefault();try{const 
 $("registerForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/auth/register",{method:"POST",body:JSON.stringify({name:$("registerName").value,email:$("registerEmail").value,password:$("registerPassword").value,sector:$("registerSector").value,companyId:$("registerCompany").value})});token=d.token;localStorage.setItem("stok_token",token);showPending(d.user);e.target.reset();message(d.message||"Solicitação enviada para aprovação.");}catch(err){message(err.message,true);}});
 $("logout").addEventListener("click",()=>{token=null;currentUser=null;localStorage.removeItem("stok_token");$("app").hidden=true;$("registerScreen").hidden=true;$("temporaryScreen").hidden=true;$("forgotScreen").hidden=true;$("resetScreen").hidden=true;$("login").hidden=false;});
 function setCreateSection(section){
- const allowed={users:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),sectors:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),companies:currentUser?.role==="superadmin",companyData:currentUser?.role==="admin"};
+ const allowed={users:["admin","superadmin","admin_setor"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),sectors:["admin","superadmin"].includes(currentUser?.role)&&(currentUser?.role!=="superadmin"||!!selectedCompanyId),companies:currentUser?.role==="superadmin",companyData:currentUser?.role==="admin"};
  $("createCompanyRequired").hidden=!(currentUser?.role==="superadmin"&&!selectedCompanyId);
  if(!allowed[section])section=allowed.users?"users":allowed.sectors?"sectors":allowed.companies?"companies":"companyData";
  ["users","sectors","companies","companyData"].forEach(key=>{const node=$(key);if(node)node.hidden=key!==section||!allowed[key];});
- document.querySelectorAll("[data-create-section]").forEach(button=>button.classList.toggle("active",button.dataset.createSection===section));
+ document.querySelectorAll("[data-create-section]").forEach(button=>{button.hidden=!allowed[button.dataset.createSection];button.classList.toggle("active",button.dataset.createSection===section);});
  if(section==="users")loadUsersList();
  if(section==="sectors")loadSectors();
  if(section==="companies"&&currentUser?.role==="superadmin")loadCompaniesList();
@@ -564,7 +564,7 @@ function formatDate(value){if(!value)return "—";const d=new Date(String(value)
 // Carrega setores oficiais e preenche os campos de seleção da interface.
 async function loadSectors(){
  try{
-  cachedSectors=await api("/sectors"+(currentUser?.role==="superadmin"?"?includeInactive=true":""));
+  cachedSectors=await api("/sectors"+(["superadmin","admin"].includes(currentUser?.role)?"?includeInactive=true":""));
   const selects=["productSector","assetSector","deliverySector","userSector","requestAssetSector"];
   selects.forEach(id=>{
    const el=$(id);if(!el)return;
@@ -578,9 +578,9 @@ async function loadSectors(){
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
   });
   const list=$("sectorList");if(list){list.replaceChildren();cachedSectors.forEach(s=>{const row=document.createElement("div");row.className="management-row";const label=document.createElement("span");label.textContent=s.name+" — "+(s.active===false?"inativo":"ativo");row.appendChild(label);
-   if(currentUser?.role==="superadmin"&&s.active!==false){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
+   if(["superadmin","admin"].includes(currentUser?.role)&&s.active!==false){const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{const name=prompt("Novo nome do setor:",s.name);if(name===null)return;try{await api("/sectors/"+s._id,{method:"PATCH",body:JSON.stringify({name})});await loadSectors();await loadUsersList();message("Setor atualizado.");}catch(err){message(err.message,true);}});row.appendChild(edit);
    const pause=document.createElement("button");pause.type="button";pause.textContent="Pausar";pause.className="secondary";pause.addEventListener("click",async()=>{if(!confirm("Pausar o setor "+s.name+"?"))return;try{await api("/sectors/"+s._id+"/deactivate",{method:"PATCH"});await loadSectors();message("Setor pausado.");}catch(err){message(err.message,true);}});row.appendChild(pause);const del=document.createElement("button");del.type="button";del.textContent="Excluir";del.className="danger";del.addEventListener("click",async()=>{if(!confirm("Excluir definitivamente da lista o setor "+s.name+"? O histórico será preservado."))return;try{await api("/sectors/"+s._id,{method:"DELETE"});await loadSectors();message("Setor excluído.");}catch(err){message(err.message,true);}});row.appendChild(del);}
-   if(currentUser?.role==="superadmin"&&s.active===false){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{try{await api("/sectors/"+s._id+"/restore",{method:"PATCH"});await loadSectors();message("Setor restaurado.");}catch(err){message(err.message,true);}});row.appendChild(restore);}
+   if(["superadmin","admin"].includes(currentUser?.role)&&s.active===false){const restore=document.createElement("button");restore.type="button";restore.textContent="Restaurar";restore.addEventListener("click",async()=>{try{await api("/sectors/"+s._id+"/restore",{method:"PATCH"});await loadSectors();message("Setor restaurado.");}catch(err){message(err.message,true);}});row.appendChild(restore);}
    list.appendChild(row);});}
    if(currentUser?.role==="superadmin")loadUsersList();
  }catch(err){message(err.message,true);}

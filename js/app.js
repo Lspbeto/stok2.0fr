@@ -904,7 +904,7 @@ async function loadUsersList(){
 let userDuplicateTimer=null;
 async function checkUserDuplicates(){
  const box=$("userDuplicateSuggestions");if(!box)return;
- const values=[$("userName")?.value||"",$("userEmail")?.value||"",($("userCpf")?.value||"").replace(/\\D/g,"")].map(x=>x.trim()).filter(x=>x.length>=2);
+ const values=[$("userName")?.value||"",$("userEmail")?.value||"",($("userCpf")?.value||"").replace(/\D/g,"")].map(x=>x.trim()).filter(x=>x.length>=2);
  if(!values.length){box.hidden=true;box.replaceChildren();return;}
  try{
   const responses=await Promise.all(values.map(q=>api("/users/check?q="+encodeURIComponent(q))));

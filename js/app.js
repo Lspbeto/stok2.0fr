@@ -95,7 +95,7 @@ function showLoggedIn(user) {
      if(visible)button.style.removeProperty("display");
      else button.style.setProperty("display","none","important");
    });
-   $("createGroupChat").hidden=adminMain;
+   $("createGroupChat").hidden=false;
    if(adminMain){
      document.querySelectorAll(".tab-button").forEach(x=>x.classList.remove("active"));
      $("profileTab").classList.add("active");

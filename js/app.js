@@ -1115,7 +1115,7 @@ $("chatForm").addEventListener("submit",async e=>{
   }catch(err){message(err.message,true);}
  }
  async function decideAuthorization(id,status,note){
-  try{const d=await api("/authorizations/"+id+"/decision",{method:"PATCH",body:JSON.stringify({status,note})});message(d.message);await loadAuthorizations();await loadProducts();await loadHistory();}
+  try{const d=await api("/authorizations/"+id+"/decision",{method:"PATCH",body:JSON.stringify({status,note})});message(d.message);await loadAuthorizations();await loadProducts();await loadDeliveries();await loadHistory();}
   catch(err){message(err.message,true);}
  }
  $("assetRequestForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=await api("/authorizations/asset",{method:"POST",body:JSON.stringify({productId:$("requestAsset").value,destinationSector:$("requestAssetSector").value,reason:$("requestAssetReason").value})});e.target.reset();message(d.message);await loadAuthorizations();}catch(err){message(err.message,true);}});

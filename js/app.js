@@ -80,7 +80,8 @@ function showLoggedIn(user) {
      $("managementTab").hidden=false; $("chatTab").hidden=false;
      ["productsTab","deliveriesTab","activitiesTab"].forEach(id=>{if($(id))$(id).hidden=true;});
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=true;
-     ["managementAuthorizations","managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
+     ["managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
+     $("managementAuthorizations").hidden=false;
      if(user.role==="admin_setor"){ $("managementCreate").hidden=false; $("databaseTab").hidden=true; }
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
    }
@@ -109,7 +110,7 @@ function showLoggedIn(user) {
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
-  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role)||(user.role==="superadmin"&&!selectedCompanyId); if($("productForm"))$("productForm").hidden=user.role==="operador"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role)||(user.role==="superadmin"&&!selectedCompanyId); if($("productForm"))$("productForm").hidden=user.role==="operador"&&user.sector!=="Estoque"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();

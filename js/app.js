@@ -887,8 +887,8 @@ async function loadUsersList(){
    const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{
     const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;
-    const profile=prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;
-    const sector=prompt("Setor:",user.sector||"");if(sector===null)return;
+    const profile=currentUser.role==="admin_setor"?"operador":prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;
+    const sector=currentUser.role==="admin_setor"?currentUser.sector:prompt("Setor:",user.sector||"");if(sector===null)return;
     try{await api("/users/"+user._id,{method:"PATCH",body:JSON.stringify({name,email,role:profile,sector})});await loadUsersList();message("Usuário atualizado.");}catch(err){message(err.message,true);}
    });row.appendChild(edit);
    const action=document.createElement("button");action.type="button";action.textContent=user.active===false?"Reativar":"Pausar";action.className=user.active===false?"":"secondary";action.addEventListener("click",async()=>{

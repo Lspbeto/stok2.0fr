@@ -143,22 +143,22 @@
 <section class="activity-column"><h3>Fazendo <span id="activityCountDoing">0</span></h3><div id="activityDoing" class="activity-list"></div></section>
 <section class="activity-column"><h3>Feito <span id="activityCountDone">0</span></h3><div id="activityDone" class="activity-list"></div></section>
 </div></section>
-<section id="products" class="panel tab"><h2>Cadastro de produtos e bens</h2><p class="form-intro">Informe primeiro o nome e escolha o tipo. Os campos abaixo mudam automaticamente conforme a categoria.</p>
+<section id="products" class="panel tab"><h2>Cadastro de produtos e bens</h2><p class="form-intro">Cadastre no setor Estoque os materiais de consumo (mercadorias) e os bens duráveis (patrimônio). Depois, os demais setores solicitam os itens e confirmam o recebimento antes de prestar contas.</p>
 <form id="productForm" class="product-form">
 <label>Nome do produto / bem<input id="productName" placeholder="Digite primeiro o nome do produto ou bem" required></label>
-<label>Tipo de item<select id="productCategory"><option value="MERCADORIA">Mercadoria / consumo</option><option value="BEM">Bem durável / permanente</option></select></label>
+<label>Tipo de item<select id="productCategory"><option value="MERCADORIA">Material de consumo / mercadoria</option><option value="BEM">Bem durável / permanente (patrimônio)</option></select></label>
 
 <div id="goodsFields" class="product-fields-card goods-card">
 <label>Código / código de barras<input id="productCode" placeholder="Código do produto"></label>
 <div class="product-field-row"><label>Quantidade inicial<input id="quantity" type="number" min="0" step="0.001" placeholder="Quantidade" value="0"></label>
 <label>Unidade de medida<select id="unit"><option value="un">Unidade (un)</option><option value="kg">Quilograma (kg)</option><option value="g">Grama (g)</option><option value="L">Litro (L)</option><option value="ml">Mililitro (ml)</option><option value="pct">Pacote (pct)</option><option value="cx">Caixa (cx)</option><option value="dz">Dúzia (dz)</option><option value="fardo">Fardo</option></select></label></div>
 <div class="product-field-row three"><label>Data de entrada<input id="entryDate" type="date"></label><label>Validade<input id="expiryDate" type="date"></label><label>Data de saída (quando houver)<input id="goodsExitDate" type="date" disabled></label></div>
-<label>Setor responsável<select id="productSector" required></select></label><label>Observações<input id="description" placeholder="Observações"></label>
+<label>Setor de cadastro<select id="productSector" required disabled></select><small>Materiais de consumo são cadastrados no Estoque e distribuídos após solicitação.</small></label><label>Observações<input id="description" placeholder="Observações"></label>
 </div>
 <div id="assetFields" class="product-fields-card asset-card" hidden>
 <label>Nº de patrimônio<input id="patrimonyCode" placeholder="Número de patrimônio"></label>
 <div class="product-field-row three"><label>Quantidade<input id="assetQuantity" value="1" readonly aria-label="Quantidade fixa: 1"></label><label>Data de entrada<input id="assetEntryDate" type="date"></label><label>Data de saída (quando houver)<input id="assetExitDate" type="date" disabled></label></div>
-<label>Setor inicial do patrimônio (Estoque)<select id="assetSector" required></select></label><label>Estado de conservação<input id="condition" placeholder="Estado de conservação"></label>
+<label>Setor inicial do patrimônio<select id="assetSector" required disabled></select><small>Todo bem durável entra primeiro sob responsabilidade do Estoque.</small></label><label>Estado de conservação<input id="condition" placeholder="Estado de conservação"></label>
 </div>
 <button type="submit">Cadastrar item</button></form>
 <h3>Mercadorias / consumo</h3><div class="table-wrap"><table><thead><tr><th>Produto</th><th>Código</th><th>Quantidade</th><th>Unidade</th><th>Entrada</th><th>Validade / alerta</th><th>Saída do estoque</th><th>Saída do setor</th><th>Setor responsável</th><th>Observações</th><th>Ações</th></tr></thead><tbody id="goodsBody"></tbody></table></div>
@@ -179,4 +179,4 @@
 
 
 </section><p id="message" role="status"></p></main>
-<script src="js/config.js"></script><script src="js/app.js?v=20261127-audit-4"></script></body></html>
+<script src="js/config.js"></script><script src="js/app.js?v=20261127-stock-flow-1"></script></body></html>

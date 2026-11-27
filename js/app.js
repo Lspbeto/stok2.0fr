@@ -109,7 +109,7 @@ function showLoggedIn(user) {
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
-  $("deliveryForm").hidden=user.role!=="admin"; if($("productForm"))$("productForm").hidden=user.role==="operador"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
+  $("deliveryForm").hidden=!["admin","superadmin"].includes(user.role)||(user.role==="superadmin"&&!selectedCompanyId); if($("productForm"))$("productForm").hidden=user.role==="operador"; const bemOption=$("productCategory")?.querySelector('option[value="BEM"]');if(bemOption)bemOption.hidden=user.role==="admin_setor"||user.role==="operador";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
@@ -886,7 +886,7 @@ async function loadUsersList(){
   users.forEach(user=>{
    const row=document.createElement("div");row.className="management-row";
    const role={admin:"Administrador da empresa",admin_setor:"Administrador do setor",operador:"Operador"}[user.role]||user.role;
-   const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — CPF: "+(user.cpf||"não informado")+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"inativo":"ativo");row.appendChild(label);
+   const label=document.createElement("span");label.textContent=user.name+" — "+user.email+" — CPF: "+(user.cpf||"não informado")+" — "+role+" — "+(user.sector||"Sem setor")+" — "+(user.deletedAt?"excluído":user.active===false?"pausado":"ativo")+(user.testRegistration?" — CADASTRO DE TESTE":"");row.appendChild(label);
    const edit=document.createElement("button");edit.type="button";edit.textContent="Editar";edit.addEventListener("click",async()=>{
     const name=prompt("Nome:",user.name);if(name===null)return;const email=prompt("E-mail:",user.email);if(email===null)return;const cpf=prompt("CPF (opcional):",user.cpf||"");if(cpf===null)return;
     const profile=currentUser.role==="admin_setor"?"operador":prompt("Perfil: admin, admin_setor ou operador",user.role);if(profile===null)return;

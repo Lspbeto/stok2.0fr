@@ -904,15 +904,14 @@ async function loadUsersList(){
 let userDuplicateTimer=null;
 async function checkUserDuplicates(){
  const box=$("userDuplicateSuggestions");if(!box)return;
- const name=($("userName")?.value||"").trim(),email=($("userEmail")?.value||"").trim();
- const queries=[name,email].filter(q=>q.length>=2);
- if(!queries.length){box.hidden=true;box.replaceChildren();return;}
+ const values=[$("userName")?.value||"",$("userEmail")?.value||"",($("userCpf")?.value||"").replace(/\\D/g,"")].map(x=>x.trim()).filter(x=>x.length>=2);
+ if(!values.length){box.hidden=true;box.replaceChildren();return;}
  try{
-  const responses=await Promise.all(queries.map(q=>api("/users/check?q="+encodeURIComponent(q))));
+  const responses=await Promise.all(values.map(q=>api("/users/check?q="+encodeURIComponent(q))));
   const matches=[...new Map(responses.flat().map(user=>[user._id,user])).values()];
   box.replaceChildren();if(!matches.length){box.hidden=true;return;}
   const heading=document.createElement("strong");heading.textContent="Possíveis cadastros já existentes";box.appendChild(heading);
-  matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — "+(user.sector||"Sem setor")+" — "+(user.deletedAt?"excluído":user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
+  matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — CPF: "+(user.cpf||"não informado")+" — "+(user.sector||"Sem setor")+" — "+(user.deletedAt?"excluído":user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
  }catch(err){box.hidden=true;}
 }
 ["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));

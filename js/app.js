@@ -897,7 +897,7 @@ async function loadUsersList(){
     if(!confirm((user.active===false?"Reativar":"Desativar")+" o acesso de "+user.name+"?"))return;
     try{await api("/users/"+user._id+(user.active===false?"/restore":"/deactivate"),{method:"PATCH"});await loadUsersList();message("Acesso do usuário atualizado.");}catch(err){message(err.message,true);}
    });row.appendChild(action);
-   const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir";remove.className="danger";remove.addEventListener("click",async()=>{if(!confirm("Excluir o cadastro de "+user.name+"? O histórico será preservado."))return;try{await api("/users/"+user._id,{method:"DELETE"});await loadUsersList();message("Usuário excluído.");}catch(err){message(err.message,true);}});row.appendChild(remove);box.appendChild(row);
+   const remove=document.createElement("button");remove.type="button";remove.textContent="Excluir";remove.className="danger";remove.addEventListener("click",async()=>{if(!confirm("Excluir DEFINITIVAMENTE o cadastro de "+user.name+"? Ele desaparecerá da consulta de usuários. Somente o registro de auditoria ficará no relatório, com data, hora e responsável."))return;try{await api("/users/"+user._id,{method:"DELETE"});await loadUsersList();message("Usuário excluído.");}catch(err){message(err.message,true);}});row.appendChild(remove);box.appendChild(row);
   });
  }catch(err){message(err.message,true);}
 }

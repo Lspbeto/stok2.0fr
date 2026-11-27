@@ -948,7 +948,7 @@ async function loadChatContacts(){
 async function createChatConversation(type){
  try{
   const participants=[...$("chatContacts").selectedOptions].map(x=>x.value);
-  if(["admin","superadmin"].includes(currentUser.role)&&type!=="DIRECT"){message("O chat dos administradores é uma conversa privada entre o administrador geral e o administrador da empresa.",true);return;}
+  if(["admin","superadmin"].includes(currentUser.role)&&type!=="DIRECT"){message("O chat do administrador geral permite conversa privada com ADM da empresa, ADM de setor ou operador da empresa selecionada.",true);return;}
   if(type==="DIRECT"&&participants.length!==1){message("Selecione exatamente uma pessoa para a conversa privada.",true);return;}
   if(type==="GROUP"&&participants.length<1){message("Selecione pelo menos uma pessoa para o grupo.",true);return;}
   if(type==="GROUP"&&!$("chatGroupName").value.trim()){message("Informe um nome para o grupo.",true);$("chatGroupName").focus();return;}

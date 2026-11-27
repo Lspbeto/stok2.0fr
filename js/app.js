@@ -48,7 +48,7 @@ function showLoggedIn(user) {
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   renderProfile(user);
-   $("managementTab").hidden=false; if($("createTab"))$("createTab").hidden=!(isAdmin||user.role==="admin_setor"); if($("dashboardTab"))$("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); if($("reportsTab"))$("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; if($("globalReportTab"))$("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); if($("databaseTab"))$("databaseTab").hidden=!isAdmin&&user.role!=="admin_setor"; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
+   $("managementTab").hidden=false; if($("createTab"))$("createTab").hidden=!(isAdmin||user.role==="admin_setor"); if($("dashboardTab"))$("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); if($("reportsTab"))$("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; if($("globalReportTab"))$("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId); if($("databaseTab"))$("databaseTab").hidden=!isAdmin&&user.role!=="admin_setor"; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
    // O administrador geral tem somente três áreas principais.
    if(isSuperAdmin){
@@ -79,7 +79,7 @@ function showLoggedIn(user) {
      $("profileTab").hidden=false;
      $("managementTab").hidden=false; $("chatTab").hidden=false;
      ["productsTab","deliveriesTab","activitiesTab"].forEach(id=>{if($(id))$(id).hidden=true;});
-     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=true; $("managementActivities").hidden=true;
      ["managementAuthorizations","managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
      if(user.role==="admin_setor"){ $("managementCreate").hidden=false; $("databaseTab").hidden=true; }
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
@@ -108,7 +108,7 @@ function showLoggedIn(user) {
   $("createCompanyDataTab").hidden=user.role!=="admin";
   $("companies").hidden=!isSuperAdmin;
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
-  $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
+  $("users").hidden=!(isAdmin||user.role==="admin_setor")||(isSuperAdmin&&!selectedCompanyId);
   $("deliveryForm").hidden=user.role!=="admin";
   if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
@@ -902,11 +902,15 @@ async function loadUsersList(){
 let userDuplicateTimer=null;
 async function checkUserDuplicates(){
  const box=$("userDuplicateSuggestions");if(!box)return;
- const q=[$("userName")?.value||"",$("userEmail")?.value||""].filter(Boolean).join(" ").trim();
- if(q.length<2){box.hidden=true;box.replaceChildren();return;}
- try{const matches=await api("/users/check?q="+encodeURIComponent(q));box.replaceChildren();if(!matches.length){box.hidden=true;return;}
- const heading=document.createElement("strong");heading.textContent="Possíveis cadastros já existentes";box.appendChild(heading);
- matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
+ const name=($("userName")?.value||"").trim(),email=($("userEmail")?.value||"").trim();
+ const queries=[name,email].filter(q=>q.length>=2);
+ if(!queries.length){box.hidden=true;box.replaceChildren();return;}
+ try{
+  const responses=await Promise.all(queries.map(q=>api("/users/check?q="+encodeURIComponent(q))));
+  const matches=[...new Map(responses.flat().map(user=>[user._id,user])).values()];
+  box.replaceChildren();if(!matches.length){box.hidden=true;return;}
+  const heading=document.createElement("strong");heading.textContent="Possíveis cadastros já existentes";box.appendChild(heading);
+  matches.forEach(user=>{const item=document.createElement("div");item.className="duplicate-suggestion";item.textContent=user.name+" — "+user.email+" — "+(user.sector||"Sem setor")+" — "+(user.active===false?"pausado":"ativo");box.appendChild(item);});box.hidden=false;
  }catch(err){box.hidden=true;}
 }
 ["userName","userEmail"].forEach(id=>$(id)?.addEventListener("input",()=>{clearTimeout(userDuplicateTimer);userDuplicateTimer=setTimeout(checkUserDuplicates,250);}));

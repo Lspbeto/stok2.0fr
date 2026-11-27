@@ -940,7 +940,7 @@ async function loadChatContacts(){
  try{
   if(!$("chatCompany").value)return;
   const query=currentUser.role==="superadmin"?"?companyId="+encodeURIComponent($("chatCompany").value):"";
-  let users=await api("/chat/contacts"+query);if(["admin","superadmin"].includes(currentUser.role))users=users.filter(user=>currentUser.role==="superadmin"?user.role==="admin":user.role==="superadmin");const select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
+  let users=await api("/chat/contacts"+query);if(currentUser.role==="admin")users=users.filter(user=>user.role==="superadmin");const select=$("chatContacts"),previous=new Set([...select.selectedOptions].map(x=>x.value));
   select.replaceChildren();
   users.forEach(user=>{const option=document.createElement("option");option.value=user._id;option.textContent=user.name+" — "+user.sector+" ("+user.role+")";option.selected=previous.has(user._id);select.appendChild(option);});
  }catch(err){message(err.message,true);}

@@ -572,7 +572,7 @@ async function loadSectors(){
    const blank=document.createElement("option");blank.value="";blank.textContent="Selecione o setor";el.appendChild(blank);
    cachedSectors.filter(s=>s.active!==false).forEach(s=>{const o=document.createElement("option");o.value=s.name;o.textContent=s.name;el.appendChild(o);});
    if(id==="assetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
-   else if(id==="requestAssetSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
+   else if(id==="requestAssetSector")el.value=currentUser?.sector||"";
    else if(cachedSectors.some(s=>s.name===previous))el.value=previous;
    else if(["operador","admin_setor"].includes(currentUser?.role)&&cachedSectors.some(s=>s.name===currentUser.sector&&s.active!==false)){el.value=currentUser.sector;el.disabled=true;}
    else if(id==="productSector")el.value=cachedSectors.some(s=>s.name==="Estoque")?"Estoque":"";
@@ -740,9 +740,10 @@ async function loadDeliveries(){
    const card=document.createElement("article");card.className="panel";
    const title=document.createElement("h3");title.textContent=d.productName+" — "+d.sector;card.appendChild(title);
    const canAccount=currentUser.role!=="superadmin"||!!selectedCompanyId;
-   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent=(d.companyName?"Empresa: "+d.companyName+" | ":"")+(d.patrimonyCode?"Patrimônio: "+d.patrimonyCode+" | ":"")+"Cadastrado por: "+(d.createdByName||"Não informado")+" | Entregue por: "+(d.userName||"Não informado")+" | Cadastrado originalmente no setor: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor que recebeu: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
-   (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" | Ação realizada no setor: "+(e.actionSector||e.sector||d.sector)+" | Origem: "+(e.sourceSector||d.sector)+" | Setor de destino/ocorrência: "+(e.destinationSector||d.sector)+" | "+e.quantity+" "+e.unit+" | "+(e.details||"");card.appendChild(p);});
-   if(!d.closed&&canAccount){
+   const latestAssetAction=[...(d.entries||[])].reverse().find(x=>["EXTRAVIO","AVARIA","VENDA","DOACAO"].includes(String(x.destination||"").toUpperCase()));let currentStatus=d.currentSector||"Não informado";if(latestAssetAction){const occurrenceSector=latestAssetAction.actionSector||latestAssetAction.sector||d.sector;const occurrence=String(latestAssetAction.destination||"").toUpperCase();currentStatus=occurrence==="EXTRAVIO"?"NÃO LOCALIZADO — extravio no setor "+occurrenceSector:occurrence==="AVARIA"?"AVARIADO — ocorrência no setor "+occurrenceSector:"SAÍDA DEFINITIVA ("+occurrence+") — setor "+occurrenceSector;}const summary=document.createElement("p");summary.textContent=(d.companyName?"Empresa: "+d.companyName+" | ":"")+(d.patrimonyCode?"Patrimônio: "+d.patrimonyCode+" | ":"")+"Cadastrado por: "+(d.createdByName||"Não informado")+" | Entregue por: "+(d.userName||"Não informado")+" | Cadastrado originalmente no setor: "+(d.productCreatedSector||d.createdSector||"não informado")+" | Setor de origem: "+(d.sourceSector||"Estoque")+" | Setor que recebeu: "+(d.destinationSector||d.sector)+" | Situação/localização atual: "+currentStatus+" | Entregue: "+d.quantity+" "+d.unit+" | Prestado: "+d.accounted+" | Falta: "+(d.quantity-d.accounted)+" | "+(d.receivedAt?"Recebido em "+new Date(d.receivedAt).toLocaleString("pt-BR"):"AGUARDANDO CONFIRMAÇÃO DE RECEBIMENTO")+" | "+(d.accountabilityDueAt?"Prazo de prestação: "+new Date(d.accountabilityDueAt).toLocaleString("pt-BR"):"Prazo inicia após recebimento")+" | "+(d.closed?"CONCLUÍDA":"EM ABERTO");card.appendChild(summary);
+   (d.entries||[]).forEach(e=>{const p=document.createElement("p");p.textContent=(e.destination||"DESTINO")+" | Ação realizada no setor: "+(e.actionSector||e.sector||d.sector)+" | Origem: "+(e.sourceSector||d.sector)+" | Setor de destino/ocorrência: "+(e.destinationSector||d.sector)+" | "+e.quantity+" "+e.unit+" | "+(e.details||"")+" | Devolução: "+(e.returnStatus||"não aplicável");card.appendChild(p);if(e.destination==="DEVOLUCAO"&&e.returnStatus==="PENDENTE"&&currentUser?.sector==="Estoque"){const confirmReturn=document.createElement("button");confirmReturn.textContent="Confirmar recebimento da devolução";confirmReturn.addEventListener("click",async()=>{try{const result=await api("/deliveries/"+e._id+"/confirm-return",{method:"POST"});message(result.message);await loadDeliveries();await loadProducts();}catch(err){message(err.message,true);}});card.appendChild(confirmReturn);}});
+   if(!d.receivedAt&&!d.closed&&["operador","admin_setor"].includes(currentUser.role)&&currentUser.sector===d.sector){const receive=document.createElement("button");receive.textContent="Confirmar recebimento do material";receive.addEventListener("click",async()=>{try{const result=await api("/authorizations/"+d.requestId+"/receive",{method:"POST"});message(result.message);await loadDeliveries();await loadProducts();await loadAuthorizations();}catch(err){message(err.message,true);}});card.appendChild(receive);}
+   if(!d.closed&&canAccount&&d.receivedAt){
     const form=document.createElement("form");form.className="form-grid";
     const isAsset=d.category==="BEM";
     const type=document.createElement("select");(isAsset?["DEVOLUCAO","TRANSFERENCIA","AVARIA","EXTRAVIO","DOACAO","VENDA","OUTRO"]:["DEVOLUCAO","CONSUMO","AVARIA","EXTRAVIO","DOACAO","VENDA","TRANSFERENCIA","OUTRO"]).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v==="AVARIA"?"AVARIA (DANO)":v;type.appendChild(o);});
@@ -1073,14 +1074,14 @@ $("chatForm").addEventListener("submit",async e=>{
  // Painel central: operadores abrem pedidos; administradores analisam conforme seu alcance.
  async function loadAuthorizations(){
   try{
-   const operator=currentUser?.role==="operador";
-   $("authorizationForms").hidden=!operator;
-   if(operator){
-    const products=await api("/products");
-    const assets=products.filter(p=>p.category==="BEM"&&p.responsibleSector===currentUser.sector);
-    const goods=products.filter(p=>p.category==="MERCADORIA");
-    const stock=goods.filter(p=>p.responsibleSector==="Estoque");
-    const own=goods.filter(p=>p.responsibleSector===currentUser.sector);
+   const canRequest=["operador","admin_setor"].includes(currentUser?.role)&&currentUser?.sector!=="Estoque";
+   $("authorizationForms").hidden=!canRequest;
+   if(canRequest){
+    const [products,stockCatalog]=await Promise.all([api("/products"),api("/products/stock-catalog")]);
+    const assets=stockCatalog.filter(p=>p.category==="BEM");
+    const goods=stockCatalog.filter(p=>p.category==="MERCADORIA");
+    const stock=goods;
+    const own=products.filter(p=>p.category==="MERCADORIA"&&p.responsibleSector===currentUser.sector);
     const fill=(id,items,label)=>{const el=$(id),old=el.value;el.replaceChildren();items.forEach(p=>{const o=document.createElement("option");o.value=p._id;o.textContent=label(p);el.appendChild(o);});if(items.some(p=>p._id===old))el.value=old;};
     fill("requestAsset",assets,p=>p.name+" — patrimônio "+p.patrimonyCode);
     fill("requestProduct",stock,p=>p.name+" — disponível "+p.quantity+" "+p.unit);
@@ -1100,6 +1101,7 @@ $("chatForm").addEventListener("submit",async e=>{
     const info=document.createElement("p");info.textContent=type+" — "+status+" | Empresa: "+(item.companyName||item.company?.name||"Empresa não identificada")+" | Solicitante: "+item.requesterName+" | Setor: "+item.requesterSector;
     const details=document.createElement("p");details.textContent=[item.productName,item.patrimonyCode?"Patrimônio: "+item.patrimonyCode:"",item.sourceSector?"Origem: "+item.sourceSector:"",item.destinationSector?"Destino: "+item.destinationSector:"",item.quantity!==null&&item.quantity!==undefined?"Quantidade: "+item.quantity+" "+(item.unit||""):"",item.currentQuantity!==null&&item.currentQuantity!==undefined?"Registrado: "+item.currentQuantity:"",item.countedQuantity!==null&&item.countedQuantity!==undefined?"Encontrado: "+item.countedQuantity:"","Justificativa: "+item.reason,item.decisionNote?"Observação: "+item.decisionNote:""].filter(Boolean).join(" • ");
     card.append(info,details);
+    if(item.status==="APROVADA"&&item.fulfillmentStatus==="AGUARDANDO_RECEBIMENTO"&&["operador","admin_setor"].includes(currentUser.role)&&currentUser.sector===item.destinationSector){const receive=document.createElement("button");receive.textContent="Confirmar recebimento";receive.addEventListener("click",async()=>{try{const result=await api("/authorizations/"+item._id+"/receive",{method:"POST"});message(result.message);await loadAuthorizations();await loadDeliveries();await loadProducts();}catch(err){message(err.message,true);}});card.appendChild(receive);}
     if(item.status==="PENDENTE"&&["admin","admin_setor","superadmin"].includes(currentUser.role)){
      const note=document.createElement("input");note.placeholder="Observação da decisão (opcional)";
      const approve=document.createElement("button");approve.textContent="Aprovar";approve.addEventListener("click",()=>decideAuthorization(item._id,"APROVADA",note.value));

@@ -71,7 +71,7 @@ function showLoggedIn(user) {
      $("managementCreate").hidden=false;
      $("managementAuthorizations").hidden=false;
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
-     if($("managementHistory"))$("managementHistory").hidden=false; $("managementCreate").hidden=true;
+     if($("managementHistory"))$("managementHistory").hidden=false; $("managementCreate").hidden=false;
      $("managementGlobalReport").hidden=true; $("managementDatabase").hidden=true;
      $("managementDashboard").hidden=false; if($("managementReports"))$("managementReports").hidden=false;
    }else{

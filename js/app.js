@@ -48,7 +48,7 @@ function showLoggedIn(user) {
   const roleLabel=isSuperAdmin?"Administrador geral STOK":user.role==="admin"?"Administrador da empresa":user.role==="admin_setor"?"Administrador do setor":"Operador";
   $("welcome").textContent="Olá, "+user.name+" ("+roleLabel+")";
   renderProfile(user);
-   $("managementTab").hidden=false; if($("createTab"))$("createTab").hidden=!isAdmin; if($("dashboardTab"))$("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); if($("reportsTab"))$("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; if($("globalReportTab"))$("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); if($("databaseTab"))$("databaseTab").hidden=!isAdmin; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
+   $("managementTab").hidden=false; if($("createTab"))$("createTab").hidden=!isAdmin; if($("dashboardTab"))$("dashboardTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); if($("reportsTab"))$("reportsTab").hidden=!["admin","admin_setor","superadmin"].includes(currentUser.role); $("reportAllCompaniesWrap").hidden=!isSuperAdmin; if($("globalReportTab"))$("globalReportTab").hidden=!isSuperAdmin; $("companies").hidden=!isSuperAdmin; $("companyData").hidden=user.role!=="admin"; $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId); if($("databaseTab"))$("databaseTab").hidden=!isAdmin&&user.role!=="admin_setor"; $("chatTab").hidden=false; $("approvalsTab").hidden=!isAdmin; $("authorizationsTab").hidden=true; $("databaseTools").hidden=true;
    const adminMain=["admin","superadmin"].includes(user.role);
    // O administrador geral tem somente três áreas principais.
    if(isSuperAdmin){
@@ -81,6 +81,7 @@ function showLoggedIn(user) {
      ["productsTab","deliveriesTab","activitiesTab"].forEach(id=>{if($(id))$(id).hidden=true;});
      $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=false;
      ["managementAuthorizations","managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
+     if(user.role==="admin_setor"){ $("managementDatabase").hidden=false; $("databaseTab").hidden=false; }
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
    }
    // Trava visual definitiva: qualquer perfil administrativo vê somente
@@ -107,6 +108,7 @@ function showLoggedIn(user) {
   $("sectors").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("users").hidden=!isAdmin||(isSuperAdmin&&!selectedCompanyId);
   $("deliveryForm").hidden=user.role!=="admin";
+  if(user.role==="admin_setor"){ $("restoreFile").closest("label").hidden=true; $("restoreButton").hidden=true; }
   loadChatCompanies();
   if(isAdmin){loadPendingUsers();} if(user.role==="admin")loadCompanyData();
   if(isSuperAdmin){
@@ -850,7 +852,7 @@ $("registryType").addEventListener("change",renderRegistryReport);
 /* Backup e restauração: a API confere novamente o perfil de administrador. */
 $("backupButton").addEventListener("click",async()=>{
  try{
-  const backupQuery=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):"";
+  const backupQuery=currentUser?.role==="superadmin"?"?companyId="+encodeURIComponent(selectedCompanyId):currentUser?.role==="admin_setor"?"?scope=sector":"";
   if(currentUser?.role==="superadmin"&&!selectedCompanyId)throw new Error("Selecione uma empresa antes de gerar o backup.");
   const response=await fetch(API+"/database/backup"+backupQuery,{headers:{Authorization:"Bearer "+token,...(selectedCompanyId?{"X-Company-Id":selectedCompanyId}:{})}});
   if(!response.ok){const d=await response.json().catch(()=>({}));throw new Error(d.message||"Não foi possível gerar o backup.");}

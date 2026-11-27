@@ -79,7 +79,7 @@ function showLoggedIn(user) {
      $("profileTab").hidden=false;
      $("managementTab").hidden=false; $("chatTab").hidden=false;
      ["productsTab","deliveriesTab","activitiesTab"].forEach(id=>{if($(id))$(id).hidden=true;});
-     $("managementProducts").hidden=false; $("managementDeliveries").hidden=true; $("managementActivities").hidden=true;
+     $("managementProducts").hidden=false; $("managementDeliveries").hidden=false; $("managementActivities").hidden=true;
      ["managementAuthorizations","managementDashboard","managementReports","managementHistory","managementCreate","managementGlobalReport","managementDatabase","managementReportFilter"].forEach(id=>{if($(id))$(id).hidden=true;});
      if(user.role==="admin_setor"){ $("managementCreate").hidden=false; $("databaseTab").hidden=true; }
      $("authorizationsTab").hidden=true; $("approvalsTab").hidden=true;
